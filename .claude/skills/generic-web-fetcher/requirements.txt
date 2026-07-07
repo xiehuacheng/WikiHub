@@ -1,1 +1,1 @@
-beautifulsoup4
+beautifulsoup4  # fallback 本地正文提取依赖

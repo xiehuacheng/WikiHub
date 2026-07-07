@@ -19,7 +19,7 @@ WikiHub 唯一特定的主控 skill。它本身不直接抓取任何外部内容
 
 - 从 Cubox 拉取未归档卡片，或读取 `--queue` 指定的输入队列。
 - 按 URL 域名路由到对应工具 skill。
-- 维护 WikiHub 状态：`wikihub-exported.json`、`wikihub-orchestrator-config.json`、`/tmp/wikihub-pending.json`。
+- 维护 WikiHub 状态：`wikihub-exported.json`、`.claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json`、`/tmp/wikihub-pending.json`。
 - 对含音频的内容自动调用 `transcribe-audio` 并追加转录文本。
 - 生成统一格式的 WikiHub Markdown 到 `Unmapped/` 或配置的 `target_wiki`。
 - 可选归档 Cubox 卡片到指定文件夹。
@@ -69,7 +69,7 @@ B 站收藏夹需要先在项目根目录创建 `bilibili-export-config.json`（
 
 ## 配置文件
 
-默认读取项目根目录下的 `wikihub-orchestrator-config.json`：
+默认读取 `.claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json`，如果该位置不存在则回退到项目根目录下的旧文件：
 
 ```json
 {

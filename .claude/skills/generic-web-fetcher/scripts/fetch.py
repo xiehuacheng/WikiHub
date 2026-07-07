@@ -12,6 +12,8 @@ import json
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -59,6 +61,35 @@ def _extract_author(soup) -> str:
         tag = soup.find("meta", attrs={"name": prop}) or soup.find("meta", attrs={"property": prop})
         if tag and tag.get("content"):
             return tag["content"].strip()
+    return ""
+
+
+def _jina_fetch(url: str, timeout: int = 30) -> str:
+    """使用 Jina Reader (https://r.jina.ai/<URL>) 获取页面 Markdown。"""
+    jina_url = f"https://r.jina.ai/{url}"
+    req = urllib.request.Request(
+        jina_url,
+        headers={"User-Agent": USER_AGENT},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status != 200:
+                raise RuntimeError(f"Jina Reader returned HTTP {resp.status}")
+            return resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Jina Reader HTTP error: {exc.code} {exc.reason}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Jina Reader request failed: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise RuntimeError("Jina Reader timed out") from exc
+
+
+def _extract_title_from_markdown(markdown: str) -> str:
+    """从 Markdown 文本第一级标题提取标题。"""
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            return stripped[2:].strip()
     return ""
 
 
@@ -115,8 +146,8 @@ def _extract_content(soup) -> str:
     return best.strip()
 
 
-def fetch_page(url: str) -> dict:
-    """抓取页面并返回标准数据字典。"""
+def _fetch_with_bs4(url: str) -> dict:
+    """本地 fallback：curl 拉取 HTML + BeautifulSoup4 提取正文。"""
     html = _curl(url)
     try:
         from bs4 import BeautifulSoup
@@ -132,16 +163,47 @@ def fetch_page(url: str) -> dict:
         raise RuntimeError(f"提取正文过短（{len(content)} 字符），可能页面结构不适合")
 
     parsed = urlparse(url)
-    page_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
-
     return {
-        "page_id": page_id,
         "title": title,
         "author": author,
         "content": content,
-        "url": url,
         "domain": parsed.netloc.lower(),
     }
+
+
+def fetch_page(url: str) -> dict:
+    """抓取页面并返回标准数据字典。优先 Jina Reader，失败/超时时回退到本地 bs4。"""
+    parsed = urlparse(url)
+    page_id = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
+
+    # Primary: Jina Reader
+    try:
+        markdown = _jina_fetch(url)
+        title = _extract_title_from_markdown(markdown)
+        return {
+            "page_id": page_id,
+            "title": title,
+            "author": "",
+            "content": markdown,
+            "url": url,
+            "domain": parsed.netloc.lower(),
+        }
+    except Exception as jina_err:
+        # Fallback: local curl + bs4
+        try:
+            data = _fetch_with_bs4(url)
+        except Exception as fallback_err:
+            raise RuntimeError(
+                f"Jina Reader failed ({jina_err}); fallback also failed ({fallback_err})"
+            ) from fallback_err
+        return {
+            "page_id": page_id,
+            "title": data["title"],
+            "author": data["author"],
+            "content": data["content"],
+            "url": url,
+            "domain": data["domain"],
+        }
 
 
 def slugify(text: str, max_bytes: int = 200) -> str:

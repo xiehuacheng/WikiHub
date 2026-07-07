@@ -35,7 +35,9 @@ SKILL_DIRS = {
     "transcribe": ROOT / ".claude" / "skills" / "transcribe-audio" / "scripts",
 }
 
-DEFAULT_CONFIG = ROOT / "wikihub-orchestrator-config.json"
+SKILL_CONFIG = ROOT / ".claude" / "skills" / "wikihub-orchestrator" / "wikihub-orchestrator-config.json"
+ROOT_CONFIG = ROOT / "wikihub-orchestrator-config.json"
+DEFAULT_CONFIG = SKILL_CONFIG if SKILL_CONFIG.exists() else ROOT_CONFIG
 EXPORTED_FILE = ROOT / "wikihub-exported.json"
 PENDING_FILE = Path("/tmp/wikihub-pending.json")
 

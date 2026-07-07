@@ -48,7 +48,7 @@ make all                   # apply-agent-results → apply-tags → relocate →
 - 删除 `Tech_wiki/` 内部的现有文件或目录。
 - 修改 `Tech_wiki/CLAUDE.md`、`Tech_wiki/WORKFLOWS.md`、`Tech_wiki/index.md` 等 schema/核心文件。
 - 在 `wikihub-exported.json` 中伪造或删除去重记录。
-- 绕过 `wikihub-orchestrator-config.json` 的 `sources.*.enabled: false` 状态强制导出。
+- 绕过 `.claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json` 的 `sources.*.enabled: false` 状态强制导出。
 - 把用户未授权的 `.env` 值写入任何文件（包括日志、配置、测试脚本）。
 
 ## 环境变量

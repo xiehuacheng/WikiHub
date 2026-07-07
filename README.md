@@ -83,7 +83,7 @@ make orchestrate
 5. 更新 `wikihub-exported.json` 和 `/tmp/wikihub-pending.json`。
 6. 把 Cubox 卡片移动到 `WikiHub_已归档`。
 
-> 注意：网页抓取默认禁用，如需在 Cubox 工作流中启用，请在 `wikihub-orchestrator-config.json` 中将 `web.enabled` 设为 `true`。
+> 注意：网页抓取默认禁用，如需在 Cubox 工作流中启用，请在 `.claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json` 中将 `web.enabled` 设为 `true`。
 
 ### 从输入队列导入
 
@@ -199,11 +199,12 @@ python3 .claude/skills/bilibili-fetcher/scripts/sync-favorites.py \
 ├── .env.example                      # 环境变量模板
 ├── .gitignore                        # 排除个人数据
 ├── README.md                         # 本文件
-├── wikihub-orchestrator-config.json  # 主控配置
 └── .claude/skills/
     ├── wikihub-orchestrator/         # WikiHub 主控（含选择面板）
     │   ├── scripts/                  # 编排与选择面板脚本
-    │   └── assets/                   # 选择面板前端
+    │   ├── assets/                   # 选择面板前端
+    │   └── wikihub-orchestrator-config.json  # 主控配置
+    ├── cubox-fetcher/                # Cubox 卡片获取
     ├── cubox-fetcher/                # Cubox 卡片获取
     ├── wechat-fetcher/               # 微信公众号文章
     ├── podcast-fetcher/              # Apple Podcasts / RSS
@@ -219,11 +220,15 @@ python3 .claude/skills/bilibili-fetcher/scripts/sync-favorites.py \
 ## 注意事项
 
 - 本仓库是一个**可复用的工作流模板**，不内含任何个人 wiki 内容、导出配置、URL 列表或 `.env` 文件；这些都被 `.gitignore` 排除。
-- 在公开仓库中使用前，请确认你已删除或忽略了本地个人数据（`Unmapped/`、`wikihub-exported.json`、`wikihub-orchestrator-config.json` 等）。
+- 在公开仓库中使用前，请确认你已删除或忽略了本地个人数据（`Unmapped/`、`wikihub-exported.json`、`.claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json` 等）。
 - 所有来源共享 `/tmp/wikihub-pending.json` 作为 agent 待审队列。
 - 去重键格式为 `{source}_{id}`，例如 `wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`、`web_<url_sha256>`。
 - 后续 agent 不得创建 `Tech_wiki/` 以外的任何 wiki 目录。
 - 工具 skill（`*-fetcher`、`transcribe-audio`）不依赖 WikiHub，可单独在其他工作流中使用。
+
+## 技术选型参考
+
+WikiHub 的网页抓取方案参考了 [Agent Reach](https://github.com/Panniantong/agent-reach) 的推荐，采用 [Jina Reader](https://r.jina.ai/) 作为首选抓取方式。后续在接入新的外部来源时，建议先查阅 Agent Reach 的当前选型与最佳实践，以便复用经过验证的抓取策略。
 
 ## 许可证
 

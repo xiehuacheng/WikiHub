@@ -67,7 +67,11 @@ def update_frontmatter_tags(file_path: Path, tags: list[str]):
     return True
 
 
-_ROOT_MARKERS = ["wikihub-orchestrator-config.json", "Makefile"]
+_ROOT_MARKERS = [
+    ".claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json",
+    "wikihub-orchestrator-config.json",
+    "Makefile",
+]
 
 
 def ensure_root():

@@ -29,7 +29,11 @@ def load_tag_config() -> dict:
 TAG_TO_DIR = load_tag_config().get("tag_to_dir", {})
 
 
-_ROOT_MARKERS = ["wikihub-orchestrator-config.json", "Makefile"]
+_ROOT_MARKERS = [
+    ".claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json",
+    "wikihub-orchestrator-config.json",
+    "Makefile",
+]
 
 
 def ensure_root():

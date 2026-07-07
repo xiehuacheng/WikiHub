@@ -9,13 +9,13 @@
 - 只负责内容获取与 Markdown 生成，**不感知任何 WikiHub 特定文件或工作流**。
 - 输入：任意 HTTP/HTTPS 网页链接。
 - 输出：Markdown 文件 + stdout JSON。
-- 使用 `curl` 拉取页面，`beautifulsoup4` 提取标题与正文。
+- 优先使用 Jina Reader (`https://r.jina.ai/<URL>`) 获取页面 Markdown；失败或超时时回退到本地 `curl` + `beautifulsoup4` 提取标题与正文。
 
 ## 依赖
 
 - Python 3.10+
-- `beautifulsoup4`（见 `requirements.txt`）
-- 系统 `curl`
+- `beautifulsoup4`（见 `requirements.txt`，仅 fallback 本地正文提取时需要）
+- 系统 `curl`（仅 fallback 本地抓取时需要）
 
 ## CLI 用法
 

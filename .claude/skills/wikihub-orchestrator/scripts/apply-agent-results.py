@@ -34,7 +34,11 @@ def save_json(path: Path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-_ROOT_MARKERS = ["wikihub-orchestrator-config.json", "Makefile"]
+_ROOT_MARKERS = [
+    ".claude/skills/wikihub-orchestrator/wikihub-orchestrator-config.json",
+    "wikihub-orchestrator-config.json",
+    "Makefile",
+]
 
 
 def ensure_root():
