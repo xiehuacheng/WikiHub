@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WikiHub Select</title>
+  <style>
+    :root {
+      --bg: #0f0f11;
+      --surface: #1a1a1e;
+      --surface-2: #25252b;
+      --text: #f0f0f5;
+      --text-2: #a0a0b0;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --border: #2e2e36;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(15, 15, 17, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.15s;
+    }
+
+    .tab:hover { background: var(--surface-2); }
+    .tab.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .counts {
+      margin-left: auto;
+      display: flex;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: var(--text-2);
+    }
+
+    .counts span strong {
+      color: var(--text);
+      margin-right: 4px;
+    }
+
+    main {
+      padding: 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input[type="search"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    input[type="search"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: filter 0.15s;
+    }
+
+    .btn:hover { filter: brightness(1.1); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-warning { background: var(--warning); color: #000; }
+    .btn-secondary { background: var(--surface-2); color: var(--text); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+
+    .cover-wrap {
+      aspect-ratio: 16 / 10;
+      background: var(--surface-2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cover-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cover-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-2);
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+    }
+
+    .card-body {
+      padding: 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .title a { color: var(--text); text-decoration: none; }
+    .title a:hover { text-decoration: underline; }
+
+    .meta {
+      font-size: 0.85rem;
+      color: var(--text-2);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .actions {
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .actions .btn {
+      padding: 8px 0;
+      font-size: 0.85rem;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--text-2);
+      padding: 60px 20px;
+      grid-column: 1 / -1;
+    }
+
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 0.85rem;
+      z-index: 20;
+    }
+
+    .status-bar pre {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre-wrap;
+      max-height: 120px;
+      overflow-y: auto;
+      flex: 1;
+      color: var(--text-2);
+    }
+
+    .loading {
+      text-align: center;
+      color: var(--text-2);
+      padding: 40px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .folder-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+
+    .folder-panel h3 {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+
+    .folder-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .folder-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+    }
+
+    .folder-item:hover {
+      border-color: var(--accent);
+    }
+
+    .folder-item input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    .folder-item.disabled {
+      opacity: 0.5;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WikiHub Select</h1>
+    <nav>
+      <button class="tab active" data-platform="xiaohongshu">小红书</button>
+      <button class="tab" data-platform="bilibili">Bilibili</button>
+      <button class="tab" data-status="review">Re-review</button>
+      <div class="counts" id="counts">
+        <span>加载中...</span>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="搜索标题或作者...">
+    </div>
+
+    <div class="folder-panel hidden" id="folder-panel">
+      <h3>B 站收藏夹</h3>
+      <div class="folder-list" id="folder-list">
+        <span class="loading">加载中...</span>
+      </div>
+    </div>
+
+    <div class="grid" id="grid">
+      <div class="loading"><span class="spinner"></span>加载中...</div>
+    </div>
+  </main>
+
+  <div class="status-bar">
+    <pre id="status-text">准备就绪</pre>
+    <span id="status-badge"></span>
+  </div>
+
+  <script>
+    const grid = document.getElementById('grid');
+    const countsEl = document.getElementById('counts');
+    const searchInput = document.getElementById('search');
+    const statusText = document.getElementById('status-text');
+    const statusBadge = document.getElementById('status-badge');
+
+    const folderPanel = document.getElementById('folder-panel');
+    const folderList = document.getElementById('folder-list');
+
+    let currentTab = { platform: window.DEFAULT_PLATFORM || 'xiaohongshu', status: 'pending' };
+    let isReview = false;
+    let counts = {};
+
+    // Sync tab UI with default platform.
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.dataset.platform === currentTab.platform) {
+        btn.classList.add('active');
+      }
+    });
+
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (btn.dataset.status === 'review') {
+          isReview = true;
+          folderPanel.classList.add('hidden');
+        } else {
+          isReview = false;
+          currentTab = { platform: btn.dataset.platform, status: 'pending' };
+          loadFolders();
+        }
+        searchInput.value = '';
+        loadItems();
+      });
+    });
+
+    searchInput.addEventListener('input', debounce(loadItems, 250));
+
+    async function loadState() {
+      try {
+        const res = await fetch('/api/state');
+        const data = await res.json();
+        counts = data.platforms || {};
+        renderCounts();
+      } catch (e) {
+        countsEl.innerHTML = '<span>获取状态失败</span>';
+      }
+    }
+
+    async function loadItems() {
+      grid.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+      try {
+        let url;
+        if (isReview) {
+          url = '/api/review';
+        } else {
+          url = `/api/items?platform=${currentTab.platform}&status=${currentTab.status}`;
+        }
+        const q = searchInput.value.trim();
+        if (q) url += `&q=${encodeURIComponent(q)}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        renderItems(data.items || []);
+      } catch (e) {
+        grid.innerHTML = `<div class="empty">加载失败：${e.message}</div>`;
+      }
+    }
+
+    async function loadFolders() {
+      if (currentTab.platform !== 'bilibili' || isReview) {
+        folderPanel.classList.add('hidden');
+        return;
+      }
+      folderPanel.classList.remove('hidden');
+      folderList.innerHTML = '<span class="loading">加载中...</span>';
+      try {
+        const res = await fetch('/api/folders?platform=bilibili');
+        const data = await res.json();
+        renderFolders(data.folders || []);
+      } catch (e) {
+        folderList.innerHTML = `<span style="color: var(--danger)">加载失败：${e.message}</span>`;
+      }
+    }
+
+    function renderFolders(folders) {
+      folderList.innerHTML = '';
+      if (folders.length === 0) {
+        folderList.innerHTML = '<span class="empty">未找到收藏夹</span>';
+        return;
+      }
+      for (const folder of folders) {
+        const el = document.createElement('label');
+        el.className = 'folder-item' + (folder.enabled ? '' : ' disabled');
+        el.innerHTML = `
+          <input type="checkbox" ${folder.enabled ? 'checked' : ''}>
+          <span>${escapeHtml(folder.name)}</span>
+        `;
+        el.querySelector('input').addEventListener('change', async () => {
+          await toggleFolder(folder.id);
+        });
+        folderList.appendChild(el);
+      }
+    }
+
+    async function toggleFolder(folderId) {
+      try {
+        const res = await fetch('/api/folders/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform: 'bilibili', folder_id: folderId }),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || '切换失败');
+        setStatus(`已${data.folder.enabled ? '启用' : '禁用'}收藏夹`, 'done');
+        await loadState();
+        await loadFolders();
+        loadItems();
+      } catch (e) {
+        setStatus('收藏夹切换失败：' + e.message, 'failed');
+        await loadFolders();
+      }
+    }
+
+    function renderCounts() {
+      const xhs = counts.xiaohongshu || {};
+      const bili = counts.bilibili || {};
+      countsEl.innerHTML = `
+        <span><strong>小红书</strong> 待${xhs.pending || 0}/选${xhs.selected || 0}/拒${xhs.rejected || 0}</span>
+        <span><strong>B站</strong> 待${bili.pending || 0}/选${bili.selected || 0}/拒${bili.rejected || 0}</span>
+      `;
+    }
+
+    function renderItems(items) {
+      grid.innerHTML = '';
+      if (items.length === 0) {
+        grid.innerHTML = '<div class="empty">没有符合条件的条目</div>';
+        return;
+      }
+      for (const item of items) {
+        grid.appendChild(buildCard(item));
+      }
+    }
+
+    function buildCard(item) {
+      const el = document.createElement('article');
+      el.className = 'card';
+      el.dataset.key = item.item_key;
+
+      const isReview = currentTab.status === 'review';
+      const coverHtml = item.cover
+        ? `<img src="${escapeHtml(item.cover)}" loading="lazy" referrerpolicy="no-referrer" alt="">`
+        : '<div class="cover-placeholder">无封面</div>';
+
+      const badge = item.duration
+        ? `<span class="badge">${escapeHtml(item.duration)}</span>`
+        : '';
+
+      const metaParts = [];
+      if (isReview) metaParts.push(item.platform === 'xiaohongshu' ? '小红书' : 'B站');
+      if (item.author) metaParts.push(escapeHtml(item.author));
+      if (item.stats) metaParts.push(escapeHtml(item.stats));
+      if (item.folder) metaParts.push(escapeHtml(item.folder));
+
+      const decisionTag = item.decision
+        ? `<span style="color: var(--${item.decision === 'selected' ? 'success' : item.decision === 'rejected' ? 'danger' : 'warning'})">${{'selected':'已选择','rejected':'已拒绝','skipped':'已跳过'}[item.decision]}</span>`
+        : '';
+
+      el.innerHTML = `
+        <div class="cover-wrap">
+          ${coverHtml}
+          ${badge}
+        </div>
+        <div class="card-body">
+          <h3 class="title"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.title) || '无标题'}</a></h3>
+          <div class="meta">
+            <div>${metaParts.join(' · ') || ''}</div>
+            <div>${decisionTag}</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-success" data-decision="selected" ${isReview && item.decision === 'selected' ? 'disabled' : ''}>选择</button>
+          <button class="btn btn-danger" data-decision="rejected" ${isReview && item.decision === 'rejected' ? 'disabled' : ''}>拒绝</button>
+          <button class="btn btn-warning" data-decision="skipped" ${isReview && item.decision === 'skipped' ? 'disabled' : ''}>跳过</button>
+        </div>
+      `;
+
+      el.querySelectorAll('.actions button').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          await sendDecision(item.platform, item.item_key, btn.dataset.decision);
+          btn.disabled = false;
+        });
+      });
+
+      return el;
+    }
+
+    async function sendDecision(platform, itemKey, decision) {
+      try {
+        const res = await fetch('/api/decision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform, item_key: itemKey, decision }),
+        });
+        if (!res.ok) throw new Error('request failed');
+        setStatus(`已记录：${platform} ${itemKey} -> ${decision}`, 'done');
+        await loadState();
+        loadItems();
+      } catch (e) {
+        setStatus('记录失败：' + e.message, 'failed');
+      }
+    }
+
+    function setStatus(text, badge) {
+      statusText.textContent = text;
+      const badgeMap = {
+        idle: '',
+        running: '运行中',
+        done: '完成',
+        failed: '失败',
+      };
+      statusBadge.textContent = badgeMap[badge] || '';
+      statusBadge.style.color = badge === 'failed' ? 'var(--danger)' : badge === 'done' ? 'var(--success)' : 'var(--text-2)';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function debounce(fn, ms) {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+      };
+    }
+
+    (async () => {
+      await loadState();
+      await loadFolders();
+      await loadItems();
+    })();
+  </script>
+</body>
+</html>

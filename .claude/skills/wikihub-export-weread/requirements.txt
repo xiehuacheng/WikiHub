@@ -1,0 +1,7 @@
+# 微信读书笔记导出 Skill 依赖
+#
+# 当前实现完全基于 WeChat Reading 官方 Agent Skill Gateway，
+# 使用标准库 urllib 发起 HTTPS 请求，不依赖第三方 Python 包。
+#
+# 系统依赖：
+#   - 有效的 WEREAD_API_KEY 环境变量（或 .env 中设置）

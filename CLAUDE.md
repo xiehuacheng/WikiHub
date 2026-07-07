@@ -1,0 +1,82 @@
+# CLAUDE.md — WikiHub Agent 协作指南
+
+本文件约束所有操作 WikiHub 项目的 agent 行为。WikiHub 是一个 **agent 驱动的外部资料导入中枢**，统一接收微信公众号、微信读书、播客、B 站、小红书、Cubox 等来源的内容，并只落地到 `Tech_wiki/` 这一个正式 wiki 中。
+
+## 核心原则
+
+1. **只做增量导入**：所有导出脚本必须通过 `wikihub-exported.json` 去重，避免重复抓取、重复下载、重复转录。
+2. **只有一个合法 wiki**：`Tech_wiki/` 是 WikiHub 中唯一合法的 wiki 目录。
+3. **禁止自动创建新 wiki**：agent 不得创建任何新的 `*_wiki/` 顶层目录，除非用户明确书面授权。
+4. **默认落地到 `Unmapped/`**：新导出的原始资料默认写入 `Unmapped/`，由后续分类流程决定是否移动到 `Tech_wiki/` 内部。
+
+## 工作流
+
+用户通过自然语言触发导出，agent 调用对应 skill，最终由 Makefile 执行：
+
+```
+用户自然语言指令
+    ↓
+调用 .claude/skills/wikihub-export-*/ 下对应 skill
+    ↓
+make detect-*-folders      # 初始化/更新 *-export-config.json
+make export-* [--yes]      # 导出内容，生成 markdown 与 /tmp/wikihub-pending.json
+    ↓
+make all                   # apply-agent-results → apply-tags → relocate → dashboard
+```
+
+### 增量导入机制
+
+- 去重键格式：`{source}_{id}`，例如 `weread_3300045871`、`wechat_MzA5...`、`podcast_sha256`、`bvid_BV1...`、`xhs_67f...`、`cubox_cardid`。
+- 已导出记录保存在 `wikihub-exported.json`。
+- 导出脚本在拉取/转录前必须先检查该 key，已存在则跳过。
+- 音频/视频转录结果也应通过同一 key 去重，避免重复调用 ASR。
+
+### 分类与移动
+
+- `Unmapped/` 是新内容的默认落脚点。
+- `relocate-by-classification.py` 可根据 `ai_tags` 将文件移动到 `Tech_wiki/00-Raw/` 或 `Tech_wiki/02-Areas/` 下的合适子目录。
+- **移动目标必须位于 `Tech_wiki/` 内部**，不得移动到任何新的 `*_wiki/` 目录。
+- 如果分类结果建议创建新 wiki 目录（如 `MentalHealth_wiki/`），应拒绝执行，并将内容保留在 `Unmapped/` 或 `Tech_wiki/00-Raw/uncategorized/`，同时提示用户。
+
+## 禁止行为
+
+以下行为未经用户明确授权，agent 不得执行：
+
+- 创建任何新的 `*_wiki/` 顶层目录。
+- 删除 `Tech_wiki/` 内部的现有文件或目录。
+- 修改 `Tech_wiki/CLAUDE.md`、`Tech_wiki/WORKFLOWS.md`、`Tech_wiki/index.md` 等 schema/核心文件。
+- 在 `wikihub-exported.json` 中伪造或删除去重记录。
+- 绕过 `*-export-config.json` 的 `enabled: false` 状态强制导出。
+- 把用户未授权的 `.env` 值写入任何文件（包括日志、配置、测试脚本）。
+
+## 环境变量
+
+敏感配置必须来自环境变量或根目录 `.env` 文件（由调用方负责加载），不要在代码中硬编码：
+
+- `WEREAD_API_KEY`：微信读书 Skill Gateway
+- `DASHSCOPE_API_KEY`：阿里云 DashScope（B 站/播客转录）
+- `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` / `OSS_BUCKET` / `OSS_ENDPOINT`：OSS 上传
+- `CUBOX_API_KEY`：Cubox 导出
+
+## 目录结构
+
+```
+WikiHub/
+├── CLAUDE.md                     # 本文件
+├── .env.example                  # 环境变量模板
+├── Makefile                      # 统一导出/处理入口
+├── Unmapped/                     # 新导出内容默认落地目录
+├── Tech_wiki/                    # 唯一合法 wiki
+│   ├── CLAUDE.md                 # Tech_wiki 内部 schema 与协作指南
+│   ├── WORKFLOWS.md
+│   ├── 00-Raw/                   # 原始资料
+│   ├── 01-Wiki/                  # 概念卡片
+│   ├── 02-Areas/                 # 领域聚合
+│   └── assets/                   # 附件
+├── .claude/skills/wikihub-export/          # 统一管道脚本
+└── .claude/skills/wikihub-export-*/        # 各来源 skill
+```
+
+## 变更记录
+
+- 2026-07-06：新增本指南，明确 WikiHub 为单一 Tech_wiki 入口，禁止自动创建其他 wiki 目录。

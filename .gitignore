@@ -1,0 +1,48 @@
+# WikiHub 工作流仓库忽略规则
+# 本仓库只保存工作流（skill、Makefile、文档），不保存个人数据。
+
+# 敏感配置
+.env
+
+# Obsidian 编辑器配置
+.obsidian/
+
+# .claude 下只保留 skills 工作流
+.claude/*
+!.claude/skills/
+
+# 所有 wiki 目录（个人知识库）
+*_wiki/
+
+# 其他个人内容目录
+Unmapped/
+Quarantine/
+docs/
+
+# 子项目独立仓库
+chubbyskills/
+
+# 个人数据与状态文件
+wikihub-exported.json
+wikihub-favorites-cache.json
+wikihub-selection-state.json
+wikihub-tags.json
+wikihub-tag-config.json
+wikihub-dashboard.md
+
+# 来源导出配置与输入 URL 列表
+*-export-config.json
+*.urls
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# 临时文件
+*.log
+/tmp/

@@ -1,0 +1,4 @@
+# 本 skill 的 Python 脚本仅使用标准库，无需额外 pip 依赖。
+# 但需要以下外部 CLI 工具：
+#   - cubox-cli  （Cubox 导出）
+#   - bilibili-cli / bili  （B 站收藏夹导出）
