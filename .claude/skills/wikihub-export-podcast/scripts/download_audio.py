@@ -13,6 +13,7 @@
 """
 
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -95,7 +96,7 @@ def _extract_audio_from_html(html: str) -> tuple[str, str]:
     优先级：
         1. og:audio meta 标签
         2. <audio src>
-        3. 内联 JSON audioUrl/mediaSrc/enclosure/url
+        3. 通用内联 JSON enclosure/url 等字段
         4. 页面中任意音频直链
     """
     title = _title_from_html(html)
@@ -121,9 +122,11 @@ def _extract_audio_from_html(html: str) -> tuple[str, str]:
         if source_match:
             return source_match.group(1).strip(), title
 
-    # 3. 内联 JSON audioUrl / mediaSrc / enclosure / url
+    # 3. 通用内联 JSON 字段（保留 enclosure / url 等常见字段作为兜底；
+    #    原实现中的小宇宙 audioUrl、喜马拉雅 mediaSrc 等平台专门字段已移除，
+    #    任何音频直链仍会被第 4 步通用正则捕获）
     match = re.search(
-        r'["\'](?:audioUrl|mediaSrc|enclosure|url)["\']\s*:\s*["\']'
+        r'["\'](?:enclosure|url)["\']\s*:\s*["\']'
         r'(https?://[^"\']+\.(?:mp3|m4a|wav|ogg|aac)[^"\']*)["\']',
         html,
         re.IGNORECASE,
@@ -388,3 +391,67 @@ def collect_episodes(cfg: dict, root: Path | None = None) -> list[dict]:
         print(f"   ⚠️  未知的 source 类型：{source}")
 
     return episodes
+
+
+def is_apple_podcasts_url(url: str) -> bool:
+    """判断 URL 是否为 Apple Podcasts 链接。"""
+    return "podcasts.apple.com" in url and bool(re.search(r"/id\d+", url))
+
+
+def parse_apple_podcasts_url(url: str) -> tuple[str | None, str | None]:
+    """解析 Apple Podcasts URL，返回 (show_id, episode_id)。
+
+    show 链接: https://podcasts.apple.com/.../id<show_id>
+    episode 链接: https://podcasts.apple.com/.../id<show_id>?i=<episode_id>
+    """
+    show_match = re.search(r"/id(\d+)", url)
+    if not show_match:
+        return None, None
+    show_id = show_match.group(1)
+    ep_match = re.search(r"[?&]i=(\d+)", url)
+    episode_id = ep_match.group(1) if ep_match else None
+    return show_id, episode_id
+
+
+def is_rss_url(url: str) -> bool:
+    """粗略判断 URL 是否为 RSS feed URL。"""
+    lower = url.lower().rstrip("/")
+    if lower.endswith(".xml") or lower.endswith(".rss") or lower.endswith(".feed"):
+        return True
+    if re.search(r"\.(rss|feed|xml)(\?|$)", lower):
+        return True
+    if any(k in lower for k in ["/feed", "/rss"]):
+        return True
+    return False
+
+
+def lookup_itunes_feed_url(show_id: str) -> str:
+    """调用 iTunes Search API 获取播客的 feedUrl。"""
+    api_url = f"https://itunes.apple.com/lookup?id={show_id}&entity=podcast"
+    result = _curl(api_url, timeout=30)
+    if result.returncode != 0:
+        raise RuntimeError(f"iTunes API 请求失败：{result.stderr}")
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"iTunes API 返回无效 JSON：{e}")
+    results = data.get("results", [])
+    if not results:
+        raise RuntimeError(f"未找到 show_id={show_id} 的播客信息")
+    feed_url = results[0].get("feedUrl", "")
+    if not feed_url:
+        raise RuntimeError("iTunes API 未返回 feedUrl")
+    return feed_url
+
+
+def fetch_apple_page_title(url: str) -> str:
+    """抓取 Apple Podcasts episode 页面，返回单集标题。"""
+    result = _curl(url, timeout=30)
+    if result.returncode != 0:
+        raise RuntimeError(f"抓取 Apple Podcasts 页面失败：{result.stderr}")
+    html = result.stdout
+    title = _title_from_html(html)
+    # Apple Podcasts 页面标题通常是 "Episode Title - Show Title"，取前面部分作为单集标题
+    if " - " in title:
+        title = title.split(" - ", 1)[0].strip()
+    return title

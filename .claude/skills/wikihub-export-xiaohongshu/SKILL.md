@@ -85,6 +85,22 @@ python3 .claude/skills/wikihub-export-xiaohongshu/scripts/export-xiaohongshu.py 
   --urls-file xiaohongshu-selected.urls --yes
 ```
 
+### 单条笔记导出
+
+```bash
+python3 .claude/skills/wikihub-export-xiaohongshu/scripts/export-one.py \
+  --url "https://www.xiaohongshu.com/explore/<note_id>"
+```
+
+- `--url`：必填，小红书笔记链接（也支持 xhslink 短链）。
+- `--target-wiki`：可选，覆盖配置中的 `target_wiki`，留空则写入 `Unmapped/`。
+
+行为：
+1. 读取 `xiaohongshu-export-config.json` 获取 `target_wiki`；若配置不存在或全部 `enabled=false`，给出提示并继续使用默认目录。
+2. 复用 `fetch_one.fetch_note` / `xhs_cli` 抓取笔记详情（CLI 优先，HTTP 回退）。
+3. 生成 Markdown 到目标目录，去重键为 `xhs_<note_id>`，写入 `wikihub-exported.json`。
+4. 追加 pending item 到 `/tmp/wikihub-pending.json`。
+
 ## 行为
 
 1. 读取 `xiaohongshu-export-config.json`。

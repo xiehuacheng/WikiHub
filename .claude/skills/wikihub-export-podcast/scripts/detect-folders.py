@@ -58,7 +58,8 @@ def main():
     if "_comment" not in config:
         config["_comment"] = (
             "podcast-export-config.json：配置需要导出的播客来源。"
-            "source 为 rss 时 urls_file 中每行一个 RSS URL；source 为 urls 时每行一个节目页面或音频直链。"
+            "source 为 rss 时 urls_file 中每行一个 RSS feed URL 或 Apple Podcasts 链接；"
+            "source 为 urls 时每行一个节目页面或音频直链。"
             "target_wiki 留空表示进入 Unmapped/，enabled 为 false 表示跳过该来源。"
         )
 
@@ -68,9 +69,9 @@ def main():
 
     urls_file = ROOT / default_folder["urls_file"]
     if not urls_file.exists():
-        urls_file.write_text("# 每行一个播客 RSS 订阅 URL\n", encoding="utf-8")
+        urls_file.write_text("# 每行一个播客 RSS feed URL 或 Apple Podcasts 链接（show/episode）\n", encoding="utf-8")
         print(f"\n📝 已创建：{urls_file}")
-        print("   请在该文件中每行放一个播客 RSS 订阅 URL。")
+        print("   请在该文件中每行放一个播客 RSS feed URL 或 Apple Podcasts 链接。")
     else:
         print(f"\n📝 已存在：{urls_file}")
 

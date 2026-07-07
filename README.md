@@ -17,11 +17,11 @@
 | 来源 | 命令 | 说明 |
 |---|---|---|
 | 微信读书 | `make export-weread` | 基于 WeChat Reading Skill Gateway 导出划线与想法 |
-| 微信公众号 | `make export-wechat` | 抓取公众号文章为 Markdown |
-| 播客 | `make export-podcast` | 解析 RSS / 单集链接，FunASR 转录 |
-| B 站 | `make export-bilibili` | 导出收藏夹视频并转录 |
-| 小红书 | `make export-xiaohongshu` | 导出收藏笔记并下载图片/视频 |
-| Cubox | `make export-cubox` | 导出 Cubox 收藏文章 |
+| 微信公众号 | `make export-wechat` / `export-one.py --url` | 抓取公众号文章为 Markdown |
+| 播客 | `make export-podcast` / `export-one.py --url` | 仅支持 Apple Podcasts 链接和标准 RSS feed |
+| B 站 | `make export-bilibili` / `export-one.py --url` | 导出收藏夹视频或单个视频并转录 |
+| 小红书 | `make export-xiaohongshu` / `export-one.py --url` | 导出收藏笔记或单条笔记 |
+| Cubox | `make export-cubox` / `make dispatch-cubox` | 批量导出文章，或作为统一入口分发链接 |
 
 ## 快速开始
 
@@ -42,7 +42,24 @@ make help
 
 ## 典型工作流
 
-### 初始化某个来源
+### 推荐：Cubox 作为统一入口
+
+把所有待导入的链接（公众号、Apple 播客、B 站、小红书）丢进 Cubox，然后一键分发：
+
+```bash
+# 1. 在 Cubox 中创建 "WikiHub_已归档" 文件夹
+# 2. 预览待处理卡片
+make dispatch-cubox DISPATCH_ARGS="--dry-run"
+
+# 3. 实际分发、导出、归档
+make dispatch-cubox
+```
+
+Dispatcher 会自动按域名分发到对应 skill，导出成功后把卡片移动到 `WikiHub_已归档`。
+
+### 传统：逐个来源导出
+
+#### 初始化
 
 ```bash
 make detect-weread-folders   # 生成 weread-export-config.json
@@ -52,12 +69,32 @@ make detect-podcast-folders  # 生成 podcast-export-config.json 和 podcast-fee
 
 编辑生成的 `*-export-config.json`，将 `enabled` 设为 `true`；对于公众号和播客，在对应的 `.urls` 文件中每行放入一个链接。
 
-### 执行导出
+#### 批量导出
 
 ```bash
 make export-weread --yes
 make export-wechat --yes
 make export-podcast --yes
+```
+
+#### 单链接导出
+
+```bash
+# 微信公众号
+python3 .claude/skills/wikihub-export-wechat/scripts/export-one.py \
+  --url "https://mp.weixin.qq.com/s/xxxxx"
+
+# Apple 播客
+python3 .claude/skills/wikihub-export-podcast/scripts/export-one.py \
+  --url "https://podcasts.apple.com/cn/podcast/xxx/id123456?i=789"
+
+# B 站
+python3 .claude/skills/wikihub-export-bilibili/scripts/export-one.py \
+  --url "https://www.bilibili.com/video/BVxxxxx"
+
+# 小红书
+python3 .claude/skills/wikihub-export-xiaohongshu/scripts/export-one.py \
+  --url "https://www.xiaohongshu.com/explore/xxxxx"
 ```
 
 ### 导出后的统一处理

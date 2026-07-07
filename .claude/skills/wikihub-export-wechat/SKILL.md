@@ -73,6 +73,20 @@ python3 .claude/skills/wikihub-export-wechat/scripts/export-wechat.py \
   --urls-file wechat-selected.urls --yes
 ```
 
+### 单链接导出
+
+```bash
+python3 .claude/skills/wikihub-export-wechat/scripts/export-one.py \
+  --url "https://mp.weixin.qq.com/s/xxxxx"
+```
+
+`export-one.py` 会：
+1. 读取 `wechat-export-config.json` 获取 `target_wiki`；如果配置不存在或没有 `enabled=true` 的 folder，仍然继续运行并给出提示，默认导出到 `Unmapped/`。
+2. 使用 `fetch_article.py` 抓取文章；失败时打印错误并返回非零退出码。
+3. 生成 markdown，去重键为 `wechat_<article_id>`，写入 `wikihub-exported.json`。
+4. 将 pending item 追加到 `/tmp/wikihub-pending.json`。
+5. 打印导出的文件路径和去重键。
+
 ## 行为
 
 1. 读取 `wechat-export-config.json`。

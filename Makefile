@@ -7,7 +7,7 @@ SELECT_PORT ?= 7321
 SELECT_VENV := .claude/skills/wikihub-import-select/.venv/bin/python
 SELECT_PYTHON := $(shell [ -f $(SELECT_VENV) ] && echo $(SELECT_VENV) || echo python3)
 
-.PHONY: help detect-cubox-folders detect-bilibili-folders detect-xiaohongshu-folders detect-weread-folders detect-wechat-folders detect-podcast-folders export-cubox export-bilibili export-xiaohongshu export-weread export-wechat export-podcast sync-favorites select select-xiaohongshu select-bilibili apply-agent-results apply-tags dashboard relocate all
+.PHONY: help detect-cubox-folders detect-bilibili-folders detect-xiaohongshu-folders detect-weread-folders detect-wechat-folders detect-podcast-folders export-cubox export-bilibili export-xiaohongshu export-weread export-wechat export-podcast dispatch-cubox sync-favorites select select-xiaohongshu select-bilibili apply-agent-results apply-tags dashboard relocate all
 
 help:
 	@echo "WikiHub 导入/导出工作流"
@@ -24,6 +24,7 @@ help:
 	@echo "  make export-weread              - 导出微信读书划线与想法"
 	@echo "  make export-wechat              - 导出微信公众号文章"
 	@echo "  make export-podcast             - 下载并转录播客单集"
+	@echo "  make dispatch-cubox             - 从 Cubox 自动分发卡片到对应 skill 导出"
 	@echo "  make sync-favorites             - 拉取最新收藏夹数据到 wikihub-favorites-cache.json"
 	@echo "  make select                     - 启动 WikiHub 选择面板（默认端口 7321，冲突时自增）"
 	@echo "  make select-xiaohongshu         - 启动 WikiHub 选择面板（默认打开小红书标签）"
@@ -69,6 +70,9 @@ export-wechat:
 
 export-podcast:
 	python3 .claude/skills/wikihub-export-podcast/scripts/export-podcast.py $(EXPORT_PODCAST_ARGS)
+
+dispatch-cubox:
+	python3 .claude/skills/wikihub-export-cubox/scripts/dispatch.py $(DISPATCH_ARGS)
 
 sync-favorites:
 	$(SELECT_PYTHON) .claude/skills/wikihub-import-select/scripts/sync.py

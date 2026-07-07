@@ -97,7 +97,7 @@ python3 .claude/skills/wikihub-export-bilibili/scripts/export-bilibili.py \
 
 1. 读取 `bilibili-export-config.json`。
 2. 对每个 `enabled: true` 的收藏夹，调用 `bili favorites <FAV_ID> --json` 获取视频列表。
-3. 跳过已在 `wikihub-exported.json` 中的 `bvid`（避免重复转录）。
+3. 跳过已在 `wikihub-exported.json` 中的 `bilibili_<bvid>`（兼容旧版 `bvid` 键，避免重复转录）。
 4. 对未转录的视频：
    - 使用 `bilibili-cli` 已登录态下载音频（避免 yt-dlp 412 问题）。
    - 使用阿里云 **FunASR** 在线转录为文字稿（音频通过阿里云 OSS 临时中转，识别后自动删除）。
@@ -117,6 +117,28 @@ python3 .claude/skills/wikihub-export-bilibili/scripts/export-bilibili.py \
    ---
    ```
 6. 生成 `/tmp/wikihub-pending.json`，其中 `snippet` 为文字稿前 2000 字，供 Agent 分类使用。
+
+## 导出单个视频
+
+除了批量导出收藏夹，也可以直接导出单个 B 站视频链接：
+
+```bash
+python3 .claude/skills/wikihub-export-bilibili/scripts/export-one.py \
+  --url "https://www.bilibili.com/video/BV1bt421L7t1"
+```
+
+支持以下 URL 格式：
+
+- 标准视频页：`https://www.bilibili.com/video/BVxxx`
+- 短链接：`https://b23.tv/xxx`
+
+行为说明：
+
+- 读取项目根目录的 `bilibili-export-config.json`；若配置不存在或没有启用的收藏夹，会给出明确提示并默认输出到 `Unmapped/`。
+- 使用去重键 `bilibili_<bvid>` 写入 `wikihub-exported.json`；已导出则跳过。
+- 生成 Markdown source 文件到 `target_wiki` 指定目录（或 `Unmapped/`）。
+- 将待分类条目追加到 `/tmp/wikihub-pending.json`。
+- 失败时以非零退出码退出并打印错误。
 
 ## 转录脚本
 

@@ -85,6 +85,37 @@ python3 .claude/skills/wikihub-export-podcast/scripts/export-podcast.py \
   --urls-file podcast-selected.urls --yes
 ```
 
+### 单链接导出
+
+使用 `scripts/export-one.py` 直接导出单条 Apple Podcasts 或 RSS feed URL，无需编辑 `.urls` 文件。
+
+```bash
+# Apple Podcasts 节目页（show）：导出最新 1 集
+python3 .claude/skills/wikihub-export-podcast/scripts/export-one.py \
+  --url "https://podcasts.apple.com/cn/podcast/id123456789"
+
+# Apple Podcasts 单集页（episode）：导出该单集
+python3 .claude/skills/wikihub-export-podcast/scripts/export-one.py \
+  --url "https://podcasts.apple.com/cn/podcast/id123456789?i=987654321"
+
+# RSS feed：导出最新 1 集
+python3 .claude/skills/wikihub-export-podcast/scripts/export-one.py \
+  --url "https://example.com/podcast/feed.xml"
+
+# show / RSS 链接可导出最新 N 集（episode 链接无效）
+python3 .claude/skills/wikihub-export-podcast/scripts/export-one.py \
+  --url "https://example.com/podcast/feed.xml" --latest 3
+```
+
+行为：
+
+- Apple Podcasts show 链接：通过 iTunes Search API 获取 `feedUrl`，解析 RSS 后导出最新 `--latest` 集（默认 1）。
+- Apple Podcasts episode 链接：抓取 Apple 页面获取单集标题，在 RSS 中按标题匹配；若匹配失败，默认导出最新 1 集并提示。
+- RSS feed URL：直接解析并导出最新 `--latest` 集。
+- 配置文件 `podcast-export-config.json` 不存在或全部禁用时，脚本仍会运行，并提示导出到 `Unmapped/`；否则使用第一个 `enabled: true` folder 的 `target_wiki`。
+- 去重键与批量导出一致，为 `podcast_<episode_id>`，写入 `wikihub-exported.json`。
+- 导出的 pending item 追加到 `/tmp/wikihub-pending.json`。
+
 ## 行为
 
 1. 读取 `podcast-export-config.json`。
