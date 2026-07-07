@@ -9,6 +9,7 @@ WikiHub 主控编排器。
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -29,6 +30,7 @@ SKILL_DIRS = {
     "podcast": ROOT / ".claude" / "skills" / "podcast-fetcher" / "scripts",
     "bilibili": ROOT / ".claude" / "skills" / "bilibili-fetcher" / "scripts",
     "xiaohongshu": ROOT / ".claude" / "skills" / "xiaohongshu-fetcher" / "scripts",
+    "web": ROOT / ".claude" / "skills" / "generic-web-fetcher" / "scripts",
     "cubox": ROOT / ".claude" / "skills" / "cubox-fetcher" / "scripts",
     "transcribe": ROOT / ".claude" / "skills" / "transcribe-audio" / "scripts",
 }
@@ -42,6 +44,7 @@ SOURCE_TAGS = {
     "podcast": ["播客"],
     "bilibili": ["B站"],
     "xiaohongshu": ["小红书"],
+    "web": ["网页"],
     "weread": ["微信读书"],
 }
 
@@ -73,9 +76,11 @@ def get_skill_python(skill_dir: Path) -> str:
 
 
 def classify_url(url: str) -> str | None:
-    """根据域名返回来源类型，未知域名返回 None。"""
+    """根据域名返回来源类型。未知 HTTP(S) 域名返回 'web'。"""
     try:
-        netloc = urlparse(url).netloc.lower()
+        parsed = urlparse(url)
+        netloc = parsed.netloc.lower()
+        scheme = parsed.scheme.lower()
     except Exception:
         return None
     if netloc.startswith("www."):
@@ -89,6 +94,8 @@ def classify_url(url: str) -> str | None:
         return "bilibili"
     if netloc in ("xiaohongshu.com", "xhslink.com") or netloc.endswith(".xiaohongshu.com"):
         return "xiaohongshu"
+    if scheme in ("http", "https") and netloc:
+        return "web"
     return None
 
 
@@ -111,6 +118,12 @@ def extract_dedup_key(kind: str, url: str, metadata: dict) -> str | None:
         note_id = metadata.get("note_id")
         if note_id:
             return f"xhs_{note_id}"
+    elif kind == "web":
+        page_id = metadata.get("page_id")
+        if page_id:
+            return f"web_{page_id}"
+        if url:
+            return f"web_{hashlib.sha256(url.encode('utf-8')).hexdigest()[:12]}"
     # fallback: URL
     return url if url else None
 
@@ -458,6 +471,7 @@ def load_config(path: Path) -> dict:
             "podcast": {"enabled": True},
             "bilibili": {"enabled": True},
             "xiaohongshu": {"enabled": True},
+            "web": {"enabled": False},
             "weread": {"enabled": False},
         },
     }

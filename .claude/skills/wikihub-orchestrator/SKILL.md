@@ -80,6 +80,7 @@ B 站收藏夹需要先在项目根目录创建 `bilibili-export-config.json`（
     "podcast": {"enabled": true},
     "bilibili": {"enabled": true},
     "xiaohongshu": {"enabled": true},
+    "web": {"enabled": false},
     "weread": {"enabled": false}
   }
 }
@@ -108,6 +109,7 @@ B 站收藏夹需要先在项目根目录创建 `bilibili-export-config.json`（
 | `podcasts.apple.com` | `podcast-fetcher` | `podcast` |
 | `bilibili.com` / `b23.tv` | `bilibili-fetcher` | `bilibili` |
 | `xiaohongshu.com` / `xhslink.com` | `xiaohongshu-fetcher` | `xiaohongshu` |
+| 其他 HTTP/HTTPS 页面 | `generic-web-fetcher` | `web`（默认关闭） |
 | 其他 | 跳过 | - |
 
 > 微信读书通过 `weread-fetcher` 单独使用，不通过 Cubox 路由。

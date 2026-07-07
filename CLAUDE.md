@@ -1,6 +1,6 @@
 # CLAUDE.md — WikiHub Agent 协作指南
 
-本文件约束所有操作 WikiHub 项目的 agent 行为。WikiHub 是一个 **agent 驱动的外部资料导入中枢**，统一接收微信公众号、微信读书、播客、B 站、小红书、Cubox 等来源的内容，并只落地到 `Tech_wiki/` 这一个正式 wiki 中。
+本文件约束所有操作 WikiHub 项目的 agent 行为。WikiHub 是一个 **agent 驱动的外部资料导入中枢**，统一接收微信公众号、微信读书、播客、B 站、小红书、Cubox、网页等来源的内容，并只落地到 `Tech_wiki/` 这一个正式 wiki 中。
 
 ## 核心原则
 
@@ -28,7 +28,7 @@ make all                   # apply-agent-results → apply-tags → relocate →
 
 ### 增量导入机制
 
-- 去重键格式：`{source}_{id}`，例如 `wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`。
+- 去重键格式：`{source}_{id}`，例如 `wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`、`web_<url_sha256>`。
 - 已导出记录保存在 `wikihub-exported.json`。
 - 导出脚本在拉取/转录前必须先检查该 key，已存在则跳过。
 - 音频/视频转录结果也应通过同一 key 去重，避免重复调用 ASR。
@@ -84,5 +84,5 @@ WikiHub/
 
 ## 变更记录
 
-- 2026-07-07：新增 `wikihub-orchestrator` 主控 skill，统一从 Cubox/队列路由到通用工具 skill 导入；统一管道脚本迁移至 orchestrator；将 `wikihub-import-select` 选择面板整合进 orchestrator；为 `xiaohongshu-fetcher`/`bilibili-fetcher` 增加 `sync-favorites.py`；删除旧 `wikihub-export-*` 单一来源 skill。
+- 2026-07-07：新增 `wikihub-orchestrator` 主控 skill，统一从 Cubox/队列路由到通用工具 skill 导入；统一管道脚本迁移至 orchestrator；将 `wikihub-import-select` 选择面板整合进 orchestrator；为 `xiaohongshu-fetcher`/`bilibili-fetcher` 增加 `sync-favorites.py`；删除旧 `wikihub-export-*` 单一来源 skill；新增 `generic-web-fetcher` 通用网页抓取 skill 并接入 orchestrator。
 - 2026-07-06：新增本指南，明确 WikiHub 为单一 Tech_wiki 入口，禁止自动创建其他 wiki 目录。

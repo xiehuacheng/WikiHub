@@ -1,6 +1,6 @@
 # WikiHub
 
-一个 **agent 驱动的个人知识导入工作流**，把微信公众号、微信读书、播客、B 站、小红书、Cubox 等外部资料自动化地转录、去重、打标签，并最终落地到个人 wiki。
+一个 **agent 驱动的个人知识导入工作流**，把微信公众号、微信读书、播客、B 站、小红书、Cubox、网页等外部资料自动化地转录、去重、打标签，并最终落地到个人 wiki。
 
 本仓库只保存**工作流代码与配置模板**，不保存个人知识内容、导出状态或敏感密钥。
 
@@ -23,9 +23,9 @@
 └──────────────┬──────────────────────┘
                │ subprocess
     ┌──────────┼──────────┬──────────┬──────────┐
-    ▼          ▼          ▼          ▼          ▼
-wechat-   podcast-   bilibili-  xiaohongshu-  weread-
-fetcher   fetcher    fetcher    fetcher       fetcher
+    ▼          ▼          ▼          ▼          ▼          ▼
+wechat-   podcast-   bilibili-  xiaohongshu-  weread-   generic-
+fetcher   fetcher    fetcher    fetcher       fetcher   web-fetcher
     │          │          │          │
     ▼          ▼          ▼          ▼
          transcribe-audio（音频转录）
@@ -41,6 +41,7 @@ fetcher   fetcher    fetcher    fetcher       fetcher
 | 小红书 | `xiaohongshu-fetcher` | 抓取笔记正文与图片 |
 | 微信读书 | `weread-fetcher` | 导出划线与想法 |
 | Cubox | `cubox-fetcher` | 获取收藏卡片列表 |
+| 网页 | `generic-web-fetcher` | 通用 HTTP/HTTPS 页面抓取 |
 
 ## 快速开始
 
@@ -63,7 +64,7 @@ make help
 
 ### 推荐：Cubox 作为统一入口
 
-把所有待导入的链接（公众号、Apple 播客、B 站、小红书）丢进 Cubox，然后一键编排：
+把所有待导入的链接（公众号、Apple 播客、B 站、小红书、网页）丢进 Cubox，然后一键编排：
 
 ```bash
 # 1. 在 Cubox 中创建 "WikiHub_已归档" 文件夹
@@ -76,11 +77,13 @@ make orchestrate
 
 `wikihub-orchestrator` 会自动：
 1. 从 Cubox 拉取未归档卡片。
-2. 按域名路由到对应工具 skill。
+2. 按域名路由到对应工具 skill（未知 HTTP/HTTPS 域名默认路由到 `generic-web-fetcher`）。
 3. 下载音频/视频后调用 `transcribe-audio` 转录。
 4. 生成统一格式的 WikiHub Markdown 到 `Unmapped/`。
 5. 更新 `wikihub-exported.json` 和 `/tmp/wikihub-pending.json`。
 6. 把 Cubox 卡片移动到 `WikiHub_已归档`。
+
+> 注意：网页抓取默认禁用，如需在 Cubox 工作流中启用，请在 `wikihub-orchestrator-config.json` 中将 `web.enabled` 设为 `true`。
 
 ### 从输入队列导入
 
@@ -117,7 +120,7 @@ make select-xiaohongshu
 make select-bilibili
 ```
 
-浏览器打开提示的地址即可筛选、标记、导出内容。B 站需要先创建 `bilibili-export-config.json`（参考 `bilibili-export-config.example.json`）勾选要同步的收藏夹。
+浏览器打开提示的地址即可筛选、标记、导出内容。B 站收藏夹配置会在首次运行 `make sync-favorites` 时自动创建，之后你只需编辑 `bilibili-export-config.json` 勾选要同步的收藏夹即可。
 
 选择完成后，点击导出会调用 `make orchestrate --queue <selected-urls>` 统一导入。
 
@@ -149,6 +152,11 @@ python3 .claude/skills/xiaohongshu-fetcher/scripts/fetch.py \
 # 音频转录
 python3 .claude/skills/transcribe-audio/scripts/transcribe.py \
   --input ./output/xxx.m4a --language auto
+
+# 通用网页
+python3 .claude/skills/generic-web-fetcher/scripts/fetch.py \
+  --url "https://example.com/article" \
+  --output-dir ./output
 
 # 微信读书（需要 WEREAD_API_KEY 与配置文件）
 python3 .claude/skills/weread-fetcher/scripts/fetch.py \
@@ -202,6 +210,7 @@ python3 .claude/skills/bilibili-fetcher/scripts/sync-favorites.py \
     ├── bilibili-fetcher/             # B 站视频
     ├── xiaohongshu-fetcher/          # 小红书笔记
     ├── weread-fetcher/               # 微信读书笔记
+    ├── generic-web-fetcher/          # 通用网页抓取
     └── transcribe-audio/             # 音频转录
 ```
 
@@ -212,7 +221,7 @@ python3 .claude/skills/bilibili-fetcher/scripts/sync-favorites.py \
 - 本仓库是一个**可复用的工作流模板**，不内含任何个人 wiki 内容、导出配置、URL 列表或 `.env` 文件；这些都被 `.gitignore` 排除。
 - 在公开仓库中使用前，请确认你已删除或忽略了本地个人数据（`Unmapped/`、`wikihub-exported.json`、`wikihub-orchestrator-config.json` 等）。
 - 所有来源共享 `/tmp/wikihub-pending.json` 作为 agent 待审队列。
-- 去重键格式为 `{source}_{id}`，例如 `wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`。
+- 去重键格式为 `{source}_{id}`，例如 `wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`、`web_<url_sha256>`。
 - 后续 agent 不得创建 `Tech_wiki/` 以外的任何 wiki 目录。
 - 工具 skill（`*-fetcher`、`transcribe-audio`）不依赖 WikiHub，可单独在其他工作流中使用。
 

@@ -146,19 +146,40 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        # Auto-create config file if it does not exist.
+        if not args.config.exists():
+            print(f"未找到 {args.config}，将从 B 站获取收藏夹列表并创建默认配置（全部禁用）", file=sys.stderr)
+            all_folders = list_folders()
+            config = {
+                "folders": [
+                    {
+                        "id": f["id"],
+                        "name": f["name"],
+                        "enabled": False,
+                        "source": "favorites",
+                        "urls_file": "",
+                    }
+                    for f in all_folders
+                ]
+            }
+            args.config.write_text(
+                json.dumps(config, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            print(f"✅ 已创建默认配置：{args.config}，请在面板中勾选要同步的收藏夹", file=sys.stderr)
+
         folders = load_config_folders(args.config)
         if not folders:
-            # 没有配置时枚举全部收藏夹并同步所有
-            print("未找到启用状态的收藏夹配置，将同步所有收藏夹", file=sys.stderr)
-            folders = list_folders()
-
-        all_items = []
-        for folder in folders:
-            videos = fetch_folder_videos(folder["id"])
-            for video in videos:
-                item = normalize_video(video, folder["name"])
-                if item:
-                    all_items.append(item)
+            print("⚠️  没有启用的收藏夹，跳过同步。请编辑配置文件或在选择面板中启用收藏夹。", file=sys.stderr)
+            all_items = []
+        else:
+            all_items = []
+            for folder in folders:
+                videos = fetch_folder_videos(folder["id"])
+                for video in videos:
+                    item = normalize_video(video, folder["name"])
+                    if item:
+                        all_items.append(item)
     except Exception as e:
         print(f"❌ {e}", file=sys.stderr)
         return 1

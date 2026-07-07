@@ -6,6 +6,7 @@
     "podcast": {"enabled": true},
     "bilibili": {"enabled": true},
     "xiaohongshu": {"enabled": true},
+    "web": {"enabled": false},
     "weread": {"enabled": false}
   }
 }
