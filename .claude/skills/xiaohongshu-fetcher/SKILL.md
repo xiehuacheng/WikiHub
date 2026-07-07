@@ -19,7 +19,11 @@
 ## CLI 用法
 
 ```bash
+# 单条笔记抓取
 python3 scripts/fetch.py --url URL --output-dir DIR
+
+# 同步当前登录用户的收藏夹
+python3 scripts/sync-favorites.py --output-json /tmp/xhs-favorites.json
 ```
 
 参数：

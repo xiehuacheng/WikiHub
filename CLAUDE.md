@@ -18,6 +18,9 @@
     ↓
 调用 .claude/skills/wikihub-orchestrator/ 编排导入流程
     ↓
+make sync-favorites        # 同步小红书/B 站收藏夹（可选）
+make select                # 通过网页面板筛选要导入的收藏夹内容（可选）
+    ↓
 make orchestrate           # 从 Cubox/队列获取条目，路由到工具 skill 导入
     ↓
 make all                   # apply-agent-results → apply-tags → relocate → dashboard
@@ -25,7 +28,7 @@ make all                   # apply-agent-results → apply-tags → relocate →
 
 ### 增量导入机制
 
-- 去重键格式：`{source}_{id}`，例如 `weread_3300045871`、`wechat_MzA5...`、`podcast_sha256`、`bvid_BV1...`、`xhs_67f...`、`cubox_cardid`。
+- 去重键格式：`{source}_{id}`，例如 `wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`。
 - 已导出记录保存在 `wikihub-exported.json`。
 - 导出脚本在拉取/转录前必须先检查该 key，已存在则跳过。
 - 音频/视频转录结果也应通过同一 key 去重，避免重复调用 ASR。
@@ -45,7 +48,7 @@ make all                   # apply-agent-results → apply-tags → relocate →
 - 删除 `Tech_wiki/` 内部的现有文件或目录。
 - 修改 `Tech_wiki/CLAUDE.md`、`Tech_wiki/WORKFLOWS.md`、`Tech_wiki/index.md` 等 schema/核心文件。
 - 在 `wikihub-exported.json` 中伪造或删除去重记录。
-- 绕过 `*-export-config.json` 的 `enabled: false` 状态强制导出。
+- 绕过 `wikihub-orchestrator-config.json` 的 `sources.*.enabled: false` 状态强制导出。
 - 把用户未授权的 `.env` 值写入任何文件（包括日志、配置、测试脚本）。
 
 ## 环境变量
@@ -55,7 +58,7 @@ make all                   # apply-agent-results → apply-tags → relocate →
 - `WEREAD_API_KEY`：微信读书 Skill Gateway
 - `DASHSCOPE_API_KEY`：阿里云 DashScope（B 站/播客转录）
 - `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` / `OSS_BUCKET` / `OSS_ENDPOINT`：OSS 上传
-- `CUBOX_API_KEY`：Cubox 导出
+
 
 ## 目录结构
 
@@ -72,12 +75,14 @@ WikiHub/
 │   ├── 01-Wiki/                  # 概念卡片
 │   ├── 02-Areas/                 # 领域聚合
 │   └── assets/                   # 附件
-├── .claude/skills/wikihub-orchestrator/    # WikiHub 主控编排 skill
+├── .claude/skills/wikihub-orchestrator/    # WikiHub 主控编排 skill（含选择面板）
+│   ├── scripts/                            # 编排与选择面板脚本
+│   └── assets/                             # 选择面板前端
 ├── .claude/skills/*-fetcher/               # 通用内容抓取工具 skill
 └── .claude/skills/transcribe-audio/        # 音频转录工具 skill
 ```
 
 ## 变更记录
 
-- 2026-07-07：新增 `wikihub-orchestrator` 主控 skill，统一从 Cubox/队列路由到通用工具 skill 导入；统一管道脚本迁移至 orchestrator；删除旧 `wikihub-export-*` 单一来源 skill。
+- 2026-07-07：新增 `wikihub-orchestrator` 主控 skill，统一从 Cubox/队列路由到通用工具 skill 导入；统一管道脚本迁移至 orchestrator；将 `wikihub-import-select` 选择面板整合进 orchestrator；为 `xiaohongshu-fetcher`/`bilibili-fetcher` 增加 `sync-favorites.py`；删除旧 `wikihub-export-*` 单一来源 skill。
 - 2026-07-06：新增本指南，明确 WikiHub 为单一 Tech_wiki 入口，禁止自动创建其他 wiki 目录。

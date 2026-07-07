@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Export orchestration for wikihub-select.
+Export orchestration for WikiHub Select.
 
-Reads the selection state, writes platform-specific .urls files, and spawns the
-existing export scripts (export-xiaohongshu.py / export-bilibili.py) with --yes.
+Reads the selection state, builds a queue JSON, and calls the main orchestrator
+to import the selected items into WikiHub.
 """
 
 import json
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,12 +18,7 @@ from pathlib import Path
 
 ROOT: Path = Path.cwd()
 EXPORTED_FILE: Path = ROOT / "wikihub-exported.json"
-
-EXPORT_SCRIPTS = {
-    "xiaohongshu": ROOT / ".claude" / "skills" / "wikihub-export-xiaohongshu" / "scripts" / "export-xiaohongshu.py",
-    "bilibili": ROOT / ".claude" / "skills" / "wikihub-export-bilibili" / "scripts" / "export-bilibili.py",
-}
-
+ORCHESTRATE_SCRIPT: Path = ROOT / ".claude" / "skills" / "wikihub-orchestrator" / "scripts" / "orchestrate.py"
 
 _lock = threading.Lock()
 _export_process: subprocess.Popen | None = None
@@ -42,55 +38,58 @@ def _ensure_exported() -> dict:
     return _load_json(EXPORTED_FILE, {})
 
 
-def _urls_file_path(state: dict, platform: str) -> Path:
-    platform_state = state.get(platform, {})
-    urls_file = platform_state.get("urls_file", f"{platform}-selected.urls")
-    return ROOT / urls_file
+def build_queue(state: dict, exported: dict | None = None) -> tuple[list[dict], int]:
+    """Build an orchestrator input queue from selected items that are not yet exported.
 
-
-def write_selected_urls(state: dict, exported: dict | None = None) -> dict[str, tuple[int, Path]]:
-    """Write .urls files for all selected items that are not yet exported.
-
-    Returns a mapping of platform -> (count, urls_file_path).
+    Returns (queue, count).
     """
     if exported is None:
         exported = _ensure_exported()
 
-    results: dict[str, tuple[int, Path]] = {}
+    queue: list[dict] = []
     for platform in ("xiaohongshu", "bilibili"):
         platform_state = state.get(platform, {})
         decisions = platform_state.get("decisions", {})
-        urls_path = _urls_file_path(state, platform)
-
-        selected = [
-            record["url"]
-            for item_key, record in decisions.items()
-            if record.get("decision") == "selected"
-            and item_key not in exported
-            and record.get("url")
-        ]
-
-        if selected:
-            urls_path.write_text("\n".join(selected) + "\n", encoding="utf-8")
-        elif urls_path.exists():
-            # Keep the file but empty it so stale URLs are not re-exported.
-            urls_path.write_text("", encoding="utf-8")
-
-        results[platform] = (len(selected), urls_path)
-
-    return results
+        for item_key, record in decisions.items():
+            if record.get("decision") != "selected":
+                continue
+            if item_key in exported:
+                continue
+            url = record.get("url", "")
+            if not url:
+                continue
+            queue.append({
+                "id": item_key,
+                "title": record.get("title", ""),
+                "url": url,
+            })
+    return queue, len(queue)
 
 
-def export_platform(platform: str, urls_file: Path) -> None:
-    """Spawn the export script for a platform in a background thread."""
+def _write_queue_file(queue: list[dict]) -> Path:
+    """Write queue JSON to a temp file and return its path."""
+    fd, temp_path = tempfile.mkstemp(
+        suffix=".json", prefix="wikihub-selected-queue-", dir=str(ROOT)
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(queue, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except FileNotFoundError:
+            pass
+        raise
+    return Path(temp_path)
+
+
+def run_orchestrator(queue_file: Path) -> None:
+    """Spawn the main orchestrator in a background thread."""
     global _export_process, _export_log, _export_started_at, _export_status
 
-    script = EXPORT_SCRIPTS.get(platform)
-    if not script or not script.exists():
-        raise RuntimeError(f"未找到 {platform} 导出脚本：{script}")
-
     python = shutil.which("python3") or sys.executable
-    cmd = [python, str(script), "--urls-file", str(urls_file), "--yes"]
+    cmd = [python, str(ORCHESTRATE_SCRIPT), "--queue", str(queue_file)]
 
     with _lock:
         if _export_process is not None and _export_process.poll() is None:
@@ -116,25 +115,31 @@ def export_platform(platform: str, urls_file: Path) -> None:
         _export_process.wait()
         with _lock:
             _export_status = "done" if _export_process.returncode == 0 else "failed"
+        # Best-effort cleanup of the temp queue file.
+        try:
+            queue_file.unlink()
+        except FileNotFoundError:
+            pass
 
     threading.Thread(target=_reader, daemon=True).start()
 
 
 def start_export(platforms: list[str], state: dict) -> dict:
-    """Write .urls files and start export subprocesses for the given platforms.
+    """Build queue and start the orchestrator subprocess.
 
     Returns a summary of what was started.
     """
     exported = _ensure_exported()
-    written = write_selected_urls(state, exported)
-    started = []
-    for platform in platforms:
-        count, urls_path = written[platform]
-        if count == 0:
-            continue
-        export_platform(platform, urls_path)
-        started.append({"platform": platform, "count": count, "urls_file": str(urls_path)})
-    return {"started": started, "written": {p: {"count": c, "urls_file": str(path)} for p, (c, path) in written.items()}}
+    queue, count = build_queue(state, exported)
+    if count == 0:
+        return {"started": [], "queue": {"count": 0, "file": ""}}
+
+    queue_file = _write_queue_file(queue)
+    run_orchestrator(queue_file)
+    return {
+        "started": [{"platform": "wikihub", "count": count, "queue_file": str(queue_file)}],
+        "queue": {"count": count, "file": str(queue_file)},
+    }
 
 
 def get_export_status() -> dict:

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Sync favorites data for WikiHub Import Select.
+Sync favorites data for WikiHub selection dashboard.
 
-Fetches live data from xiaohongshu and bilibili and writes a local cache file
-at the project root. The dashboard then reads from this cache for fast startup.
+Fetches live data from xiaohongshu and bilibili via their respective *-fetcher
+sync scripts and writes a local cache file at the project root.
 """
 
 import json
@@ -16,10 +16,7 @@ from pathlib import Path
 
 ROOT: Path = Path.cwd()
 CACHE_FILE: Path = ROOT / "wikihub-favorites-cache.json"
-
-
-def _scripts_dir() -> Path:
-    return Path(__file__).resolve().parent
+SCRIPTS_DIR: Path = Path(__file__).resolve().parent
 
 
 def sync_all() -> dict:
@@ -27,12 +24,11 @@ def sync_all() -> dict:
 
     Returns the cache dict. Raises on fetch or write errors.
     """
-    scripts_dir = _scripts_dir()
-    sys.path.insert(0, str(scripts_dir))
+    sys.path.insert(0, str(SCRIPTS_DIR))
     try:
-        import platforms
+        import select_platforms as platforms
     except Exception as e:
-        raise ImportError(f"无法导入 platforms: {e}") from e
+        raise ImportError(f"无法导入 select_platforms: {e}") from e
 
     xiaohongshu_items = platforms.load_xiaohongshu_items(use_cache=False)
     bilibili_items = platforms.load_bilibili_items(use_cache=False)

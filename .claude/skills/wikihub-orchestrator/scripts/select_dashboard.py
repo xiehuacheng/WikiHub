@@ -18,14 +18,14 @@ from pathlib import Path
 
 
 ROOT: Path = Path.cwd()
-SCRIPTS_DIR: Path = ROOT / ".claude" / "skills" / "wikihub-import-select" / "scripts"
-STATIC_DIR: Path = SCRIPTS_DIR / "static"
+SCRIPTS_DIR: Path = ROOT / ".claude" / "skills" / "wikihub-orchestrator" / "scripts"
+ASSETS_DIR: Path = ROOT / ".claude" / "skills" / "wikihub-orchestrator" / "assets"
 EXPORTED_FILE: Path = ROOT / "wikihub-exported.json"
 
 sys.path.insert(0, str(SCRIPTS_DIR))
-import exporter
-import platforms
-import state
+import select_exporter as exporter
+import select_platforms as platforms
+import select_state as state
 
 
 def _load_json(path: Path, default=None):
@@ -57,7 +57,7 @@ def _build_api_app():
 
     @app.get("/", response_class=HTMLResponse)
     async def index():
-        index_path = STATIC_DIR / "index.html"
+        index_path = ASSETS_DIR / "index.html"
         if index_path.exists():
             html = index_path.read_text(encoding="utf-8")
             default_platform = os.environ.get("SELECT_DEFAULT_PLATFORM", "xiaohongshu")
@@ -169,8 +169,9 @@ def _build_api_app():
     @app.post("/api/export")
     async def api_export(req: ExportRequest):
         st = state.load_state()
-        platforms_to_export = req.platforms or ["xiaohongshu", "bilibili"]
-        result = exporter.start_export(platforms_to_export, st)
+        # platforms parameter is kept for API compatibility but we always export
+        # the full selected queue across both platforms.
+        result = exporter.start_export(req.platforms or ["xiaohongshu", "bilibili"], st)
         return {"ok": True, "result": result}
 
     @app.get("/api/export/status")
@@ -232,7 +233,7 @@ def _build_api_app():
                 return JSONResponse(status_code=404, content={"error": str(e)})
         return JSONResponse(status_code=400, content={"error": "platform not supported"})
 
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", StaticFiles(directory=ASSETS_DIR), name="static")
     return app
 
 
@@ -306,22 +307,18 @@ def main():
     if args.platform in ("xiaohongshu", "bilibili"):
         os.environ["SELECT_DEFAULT_PLATFORM"] = args.platform
 
-    if not (ROOT / "xiaohongshu-export-config.json").exists() and not (ROOT / "bilibili-export-config.json").exists():
-        print("错误：请在 WikiHub/ 项目根目录下运行此脚本", file=sys.stderr)
-        sys.exit(1)
-
-    # Ensure static directory exists before mounting.
-    STATIC_DIR.mkdir(parents=True, exist_ok=True)
+    # Ensure assets directory exists before mounting.
+    ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.daemon:
-        platforms = [args.platform] if args.platform in ("xiaohongshu", "bilibili") else ["xiaohongshu", "bilibili"]
+        platforms_list = [args.platform] if args.platform in ("xiaohongshu", "bilibili") else ["xiaohongshu", "bilibili"]
         pid = _daemonize(sys.argv, port)
         url = f"http://127.0.0.1:{port}"
         # Wait briefly for the child to bind; if it fails we'll still report the URL.
         import time
         time.sleep(0.5)
-        _write_session(url, pid, platforms)
-        print(json.dumps({"url": url, "pid": pid, "platforms": platforms}, ensure_ascii=False))
+        _write_session(url, pid, platforms_list)
+        print(json.dumps({"url": url, "pid": pid, "platforms": platforms_list}, ensure_ascii=False))
         return
 
     app = _build_api_app()

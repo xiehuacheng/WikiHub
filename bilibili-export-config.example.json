@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "id": "12345678",
+      "name": "示例收藏夹",
+      "enabled": true,
+      "source": "favorites",
+      "urls_file": ""
+    }
+  ]
+}

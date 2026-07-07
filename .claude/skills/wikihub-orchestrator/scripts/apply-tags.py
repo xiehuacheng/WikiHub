@@ -67,19 +67,11 @@ def update_frontmatter_tags(file_path: Path, tags: list[str]):
     return True
 
 
-_EXPORT_CONFIG_FILES = [
-    "wikihub-orchestrator-config.json",
-    "bilibili-export-config.json",
-    "cubox-export-config.json",
-    "xiaohongshu-export-config.json",
-    "weread-export-config.json",
-    "wechat-export-config.json",
-    "podcast-export-config.json",
-]
+_ROOT_MARKERS = ["wikihub-orchestrator-config.json", "Makefile"]
 
 
 def ensure_root():
-    if not any((ROOT / name).exists() for name in _EXPORT_CONFIG_FILES):
+    if not any((ROOT / name).exists() for name in _ROOT_MARKERS):
         print("错误：请在 WikiHub/ 项目根目录下运行此脚本", file=sys.stderr)
         sys.exit(1)
 

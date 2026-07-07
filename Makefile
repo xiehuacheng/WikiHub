@@ -4,8 +4,8 @@
 
 SELECT_PORT ?= $(PORT)
 SELECT_PORT ?= 7321
-SELECT_VENV := .claude/skills/wikihub-import-select/.venv/bin/python
-SELECT_PYTHON := $(shell [ -f $(SELECT_VENV) ] && echo $(SELECT_VENV) || echo python3)
+ORCHESTRATOR_VENV := .claude/skills/wikihub-orchestrator/.venv/bin/python
+ORCHESTRATOR_PYTHON := $(shell [ -f $(ORCHESTRATOR_VENV) ] && echo $(ORCHESTRATOR_VENV) || echo python3)
 
 .PHONY: help orchestrate orchestrate-dry-run apply-agent-results apply-tags dashboard relocate sync-favorites select select-xiaohongshu select-bilibili all
 
@@ -43,16 +43,16 @@ relocate:
 	python3 .claude/skills/wikihub-orchestrator/scripts/relocate-by-classification.py
 
 sync-favorites:
-	$(SELECT_PYTHON) .claude/skills/wikihub-import-select/scripts/sync.py
+	$(ORCHESTRATOR_PYTHON) .claude/skills/wikihub-orchestrator/scripts/select_sync_favorites.py
 
 select:
-	$(SELECT_PYTHON) .claude/skills/wikihub-import-select/scripts/dashboard.py --port $(SELECT_PORT)
+	$(ORCHESTRATOR_PYTHON) .claude/skills/wikihub-orchestrator/scripts/select_agent_helper.py launch --port $(SELECT_PORT)
 
 select-xiaohongshu:
-	$(SELECT_PYTHON) .claude/skills/wikihub-import-select/scripts/dashboard.py --port $(SELECT_PORT) --platform xiaohongshu
+	$(ORCHESTRATOR_PYTHON) .claude/skills/wikihub-orchestrator/scripts/select_agent_helper.py launch --port $(SELECT_PORT) --platform xiaohongshu
 
 select-bilibili:
-	$(SELECT_PYTHON) .claude/skills/wikihub-import-select/scripts/dashboard.py --port $(SELECT_PORT) --platform bilibili
+	$(ORCHESTRATOR_PYTHON) .claude/skills/wikihub-orchestrator/scripts/select_agent_helper.py launch --port $(SELECT_PORT) --platform bilibili
 
 # Agent 工作流：导出后由 agent 读取 /tmp/wikihub-pending.json 并生成 /tmp/wikihub-agent-results.json，
 # 然后调用以下步骤完成隔离、标签同步、移动和看板生成。

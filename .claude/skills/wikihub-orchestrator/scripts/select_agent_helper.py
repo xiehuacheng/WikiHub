@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent helper for wikihub-import-select.
+Agent helper for WikiHub Select.
 
 Used by Claude Code Agent to launch the selection dashboard in the background,
 then trigger export after the user has finished selecting items.
@@ -24,14 +24,15 @@ from pathlib import Path
 
 
 ROOT: Path = Path.cwd()
-DASHBOARD: Path = ROOT / ".claude" / "skills" / "wikihub-import-select" / "scripts" / "dashboard.py"
-SYNC_SCRIPT: Path = ROOT / ".claude" / "skills" / "wikihub-import-select" / "scripts" / "sync.py"
+ORCHESTRATOR_DIR: Path = ROOT / ".claude" / "skills" / "wikihub-orchestrator"
+DASHBOARD: Path = ORCHESTRATOR_DIR / "scripts" / "select_dashboard.py"
+SYNC_SCRIPT: Path = ORCHESTRATOR_DIR / "scripts" / "select_sync_favorites.py"
 SESSION_FILE: Path = Path("/tmp/wikihub-select-session.json")
 DAEMON_LOG_FILE: Path = Path("/tmp/wikihub-select.log")
 
 
 def _venv_python() -> str:
-    venv = ROOT / ".claude" / "skills" / "wikihub-import-select" / ".venv" / "bin" / "python"
+    venv = ORCHESTRATOR_DIR / ".venv" / "bin" / "python"
     if venv.exists():
         return str(venv)
     return shutil.which("python3") or sys.executable
@@ -117,27 +118,6 @@ def cmd_launch(args) -> int:
 
     _stop_existing_dashboard()
 
-    cmd = [python, str(DASHBOARD), "--daemon"]
-    if args.platform:
-        cmd += ["--platform", args.platform]
-    if args.port:
-        cmd += ["--port", str(args.port)]
-
-    print(f"启动选择面板：{' '.join(cmd)}", file=sys.stderr)
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
-    if result.returncode != 0:
-        print(result.stderr or result.stdout, file=sys.stderr)
-        return 1
-
-    try:
-        info = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        print(result.stdout, end="")
-        return 0
-
-    print(json.dumps(info, ensure_ascii=False, indent=2))
-    return 0
-    python = _venv_python()
     cmd = [python, str(DASHBOARD), "--daemon"]
     if args.platform:
         cmd += ["--platform", args.platform]

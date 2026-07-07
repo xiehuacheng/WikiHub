@@ -2,14 +2,14 @@
 """
 Platform adapters for loading xiaohongshu and bilibili favorite items.
 
-Scripts are run from the project root, so sibling skill modules are located via
-sys.path.insert before import.
+Delegates actual synchronization to the platform-specific *-fetcher skills.
 """
 
 import json
 import shutil
 import subprocess
 import sys
+import tempfile
 import warnings
 from pathlib import Path
 
@@ -18,12 +18,43 @@ ROOT: Path = Path.cwd()
 BILIBILI_CONFIG_FILE: Path = ROOT / "bilibili-export-config.json"
 CACHE_FILE: Path = ROOT / "wikihub-favorites-cache.json"
 
+XIAOHONGSHU_SYNC_SCRIPT: Path = ROOT / ".claude" / "skills" / "xiaohongshu-fetcher" / "scripts" / "sync-favorites.py"
+BILIBILI_SYNC_SCRIPT: Path = ROOT / ".claude" / "skills" / "bilibili-fetcher" / "scripts" / "sync-favorites.py"
+
 
 def _load_json(path: Path, default=None):
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return default if default is not None else {}
+
+
+def _sync_platform(sync_script: Path) -> list[dict]:
+    """调用平台同步脚本，返回标准化条目列表。"""
+    if not sync_script.exists():
+        raise RuntimeError(f"同步脚本不存在：{sync_script}")
+
+    python = shutil.which("python3") or sys.executable
+    output_json = Path(tempfile.mktemp(suffix=".json", prefix="wikihub-sync-"))
+    try:
+        result = subprocess.run(
+            [python, str(sync_script), "--output-json", str(output_json)],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+        data = _load_json(output_json, [])
+        if not isinstance(data, list):
+            raise RuntimeError(f"同步脚本返回非数组：{type(data).__name__}")
+        return data
+    finally:
+        try:
+            output_json.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def load_cache() -> dict | None:
@@ -73,60 +104,12 @@ def load_xiaohongshu_items(use_cache: bool = True) -> list[dict]:
             print("📦 小红书：使用本地缓存")
             return cache["xiaohongshu"]
 
-    scripts_dir = ROOT / ".claude" / "skills" / "wikihub-export-xiaohongshu" / "scripts"
-    sys.path.insert(0, str(scripts_dir))
+    print("🌐 小红书：实时获取")
     try:
-        import xhs_cli
-    except Exception as e:
-        warnings.warn(f"无法导入 xhs_cli: {e}")
-        return []
-    finally:
-        # Keep path in sys.path; other modules may rely on it.
-        pass
-
-    try:
-        notes = xhs_cli.list_favorite_notes()
+        return _sync_platform(XIAOHONGSHU_SYNC_SCRIPT)
     except Exception as e:
         print(f"⚠️  获取小红书收藏列表失败：{e}", file=sys.stderr)
         return []
-
-    print("🌐 小红书：实时获取")
-
-    items = []
-    for note in notes:
-        if not isinstance(note, dict):
-            continue
-        note_id = str(note.get("note_id", ""))
-        if not note_id:
-            continue
-
-        display_title = str(note.get("display_title", "") or note.get("title", ""))
-        url = f"https://www.xiaohongshu.com/explore/{note_id}"
-        user = note.get("user") or {}
-        author = str(user.get("nickname", "") or user.get("nickName", ""))
-        cover = note.get("cover") or {}
-        if isinstance(cover, dict):
-            cover_url = str(cover.get("url", "") or "")
-        else:
-            cover_url = str(cover or "")
-
-        interact = note.get("interact_info") or note.get("interact") or {}
-        liked_count = str(interact.get("liked_count", "") or interact.get("likedCount", ""))
-        stats = f"👍 {liked_count}" if liked_count else ""
-
-        items.append({
-            "platform": "xiaohongshu",
-            "item_key": f"xhs_{note_id}",
-            "title": display_title,
-            "url": url,
-            "author": author,
-            "cover": cover_url,
-            "duration": "",
-            "stats": stats,
-            "folder": "默认收藏夹",
-            "source_meta": note,
-        })
-    return items
 
 
 def load_bilibili_items(use_cache: bool = True) -> list[dict]:
@@ -150,84 +133,17 @@ def load_bilibili_items(use_cache: bool = True) -> list[dict]:
             ]
 
     print("🌐 B 站：实时获取")
-
-    if not shutil.which("bili"):
-        print("⚠️  未检测到 bili CLI，跳过 B 站收藏夹。", file=sys.stderr)
+    try:
+        items = _sync_platform(BILIBILI_SYNC_SCRIPT)
+    except Exception as e:
+        print(f"⚠️  获取 B 站收藏列表失败：{e}", file=sys.stderr)
         return []
 
-    config = _load_json(BILIBILI_CONFIG_FILE, {"folders": []})
-    folders = config.get("folders", [])
-    if not folders:
-        print("⚠️  未找到 bilibili-export-config.json 或未配置收藏夹。", file=sys.stderr)
-        return []
-
-    all_items = []
-    for folder in folders:
-        if not isinstance(folder, dict):
-            continue
-        # When fetching live (for cache/sync), fetch all folders so the cache
-        # contains every video; dashboard/export will filter by enabled folders.
-        folder_id = str(folder.get("id", ""))
-        folder_name = str(folder.get("name", "未命名"))
-        if not folder_id:
-            print(f"⚠️  B 站收藏夹配置缺少 id：{folder}", file=sys.stderr)
-            continue
-
-        try:
-            result = subprocess.run(
-                ["bili", "favorites", folder_id, "--json"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-                check=False,
-            )
-            if result.returncode != 0:
-                print(
-                    f"⚠️  获取 B 站收藏夹 {folder_name} ({folder_id}) 失败：{result.stderr.strip()}",
-                    file=sys.stderr,
-                )
-                continue
-            data = json.loads(result.stdout)
-        except subprocess.TimeoutExpired:
-            print(f"⚠️  获取 B 站收藏夹 {folder_name} ({folder_id}) 超时。", file=sys.stderr)
-            continue
-        except json.JSONDecodeError as e:
-            print(
-                f"⚠️  解析 B 站收藏夹 {folder_name} ({folder_id}) JSON 失败：{e}",
-                file=sys.stderr,
-            )
-            continue
-        except Exception as e:
-            print(f"⚠️  获取 B 站收藏夹 {folder_name} ({folder_id}) 失败：{e}", file=sys.stderr)
-            continue
-
-        videos = _extract_list(data)
-        for video in videos:
-            if not isinstance(video, dict):
-                continue
-            bvid = str(video.get("bvid", "") or video.get("id", ""))
-            if not bvid:
-                continue
-
-            title = str(video.get("title", ""))
-            duration = str(video.get("duration", ""))
-            upper = video.get("upper") or {}
-            author = str(upper.get("name", "")) if isinstance(upper, dict) else ""
-
-            all_items.append({
-                "platform": "bilibili",
-                "item_key": bvid,
-                "title": title,
-                "url": f"https://www.bilibili.com/video/{bvid}/",
-                "author": author,
-                "cover": "",
-                "duration": duration,
-                "stats": "",
-                "folder": folder_name,
-                "source_meta": video,
-            })
-
-    return all_items
+    # When fetching live, fetch all folders so the cache contains every video;
+    # dashboard/export will filter by enabled folders.
+    if enabled_folder_names:
+        items = [item for item in items if item.get("folder") in enabled_folder_names.values()]
+    return items
 
 
 def load_bilibili_folders() -> list[dict]:
@@ -254,29 +170,23 @@ def load_bilibili_folders() -> list[dict]:
     if not shutil.which("bili"):
         return []
     try:
+        python = shutil.which("python3") or sys.executable
         result = subprocess.run(
-            ["bili", "favorites", "--json"],
-            capture_output=True, text=True, timeout=60, check=False,
+            [python, str(BILIBILI_SYNC_SCRIPT), "--output-json", "/tmp/wikihub-bili-folders.json"],
+            capture_output=True, text=True, timeout=120, check=False,
         )
         if result.returncode != 0:
             print(f"⚠️  获取 B 站收藏夹列表失败：{result.stderr.strip()}", file=sys.stderr)
             return []
-        data = json.loads(result.stdout)
+        # sync-favorites.py does not have a dedicated folders mode; when no config
+        # exists it enumerates and syncs all folders. We use the output to infer
+        # folder names from the first video of each folder (if any).
+        # A simpler fallback: ask the user to create bilibili-export-config.json.
+        warnings.warn("未找到 bilibili-export-config.json，无法枚举收藏夹列表。请从示例文件创建。")
+        return []
     except Exception as e:
         print(f"⚠️  获取 B 站收藏夹列表失败：{e}", file=sys.stderr)
         return []
-
-    raw_folders = _extract_list(data)
-    return [
-        {
-            "id": str(f.get("id", "")),
-            "name": str(f.get("name", "未命名")),
-            "enabled": False,
-            "target_wiki": "",
-        }
-        for f in raw_folders
-        if isinstance(f, dict) and f.get("id")
-    ]
 
 
 def toggle_bilibili_folder(folder_id: str) -> dict:
@@ -293,16 +203,7 @@ def toggle_bilibili_folder(folder_id: str) -> dict:
             new_state = folder["enabled"]
             break
     else:
-        # Folder not in config: fetch from CLI and add it (default enabled).
-        for folder in load_bilibili_folders():
-            if folder["id"] == folder_id:
-                folder["enabled"] = True
-                folders.append(folder)
-                new_state = True
-                found = True
-                break
-
-    if not found:
+        # Folder not in config: cannot toggle without name; ignore.
         raise ValueError(f"未找到收藏夹：{folder_id}")
 
     # Ensure schema defaults for all folders.
@@ -329,4 +230,6 @@ def build_item_key(platform: str, source_id: str) -> str:
     """Build the canonical item_key for a platform and source id."""
     if platform == "xiaohongshu":
         return f"xhs_{source_id}"
+    if platform == "bilibili":
+        return f"bilibili_{source_id}"
     return source_id

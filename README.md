@@ -105,13 +105,21 @@ make relocate             # 根据 ai_tags 自动移动到 Tech_wiki/
 make dashboard            # 生成 wikihub-dashboard.md
 ```
 
-### 网页看板选择导入范围
+### 收藏夹选择导入范围
 
 ```bash
+# 同步小红书/B 站收藏夹到本地缓存
+make sync-favorites
+
+# 启动选择面板（默认端口 7321，冲突时自动递增）
 make select
+make select-xiaohongshu
+make select-bilibili
 ```
 
-默认端口 `7321`，冲突时自动递增。浏览器打开提示的地址即可筛选、标记、导出内容。
+浏览器打开提示的地址即可筛选、标记、导出内容。B 站需要先创建 `bilibili-export-config.json`（参考 `bilibili-export-config.example.json`）勾选要同步的收藏夹。
+
+选择完成后，点击导出会调用 `make orchestrate --queue <selected-urls>` 统一导入。
 
 ## 单独使用工具 Skill
 
@@ -141,6 +149,23 @@ python3 .claude/skills/xiaohongshu-fetcher/scripts/fetch.py \
 # 音频转录
 python3 .claude/skills/transcribe-audio/scripts/transcribe.py \
   --input ./output/xxx.m4a --language auto
+
+# 微信读书（需要 WEREAD_API_KEY 与配置文件）
+python3 .claude/skills/weread-fetcher/scripts/fetch.py \
+  --config weread-export-config.json \
+  --output-dir ./output
+
+# Cubox 卡片列表
+python3 .claude/skills/cubox-fetcher/scripts/fetch.py \
+  --output-json /tmp/cubox-cards.json \
+  --archive-folder "WikiHub_已归档"
+
+# 同步小红书/B 站收藏夹
+python3 .claude/skills/xiaohongshu-fetcher/scripts/sync-favorites.py \
+  --output-json /tmp/xhs-favorites.json
+python3 .claude/skills/bilibili-fetcher/scripts/sync-favorites.py \
+  --config bilibili-export-config.json \
+  --output-json /tmp/bili-favorites.json
 ```
 
 ## 环境变量
@@ -155,6 +180,7 @@ python3 .claude/skills/transcribe-audio/scripts/transcribe.py \
 | `OSS_ACCESS_KEY_SECRET` | 阿里云 OSS |
 | `OSS_BUCKET` | 阿里云 OSS |
 | `OSS_ENDPOINT` | 阿里云 OSS |
+| `XHS_COOKIE` | 小红书 HTTP 回退抓取（可选，优先使用 xhs CLI） |
 
 ## 项目结构
 
@@ -167,8 +193,9 @@ python3 .claude/skills/transcribe-audio/scripts/transcribe.py \
 ├── README.md                         # 本文件
 ├── wikihub-orchestrator-config.json  # 主控配置
 └── .claude/skills/
-    ├── wikihub-orchestrator/         # WikiHub 主控
-    ├── wikihub-import-select/        # 网页看板与选择面板
+    ├── wikihub-orchestrator/         # WikiHub 主控（含选择面板）
+    │   ├── scripts/                  # 编排与选择面板脚本
+    │   └── assets/                   # 选择面板前端
     ├── cubox-fetcher/                # Cubox 卡片获取
     ├── wechat-fetcher/               # 微信公众号文章
     ├── podcast-fetcher/              # Apple Podcasts / RSS
@@ -178,14 +205,14 @@ python3 .claude/skills/transcribe-audio/scripts/transcribe.py \
     └── transcribe-audio/             # 音频转录
 ```
 
-旧有的 `wikihub-export-*` 单一来源 skill 已迁移并删除，统一由 `wikihub-orchestrator` 调用通用工具 skill 完成导入。
+旧有的 `wikihub-export-*` 单一来源 skill 已迁移并删除；`wikihub-import-select` 选择面板已整合进 `wikihub-orchestrator`，统一由主控 skill 调用通用工具 skill 完成导入。
 
 ## 注意事项
 
 - 本仓库是一个**可复用的工作流模板**，不内含任何个人 wiki 内容、导出配置、URL 列表或 `.env` 文件；这些都被 `.gitignore` 排除。
 - 在公开仓库中使用前，请确认你已删除或忽略了本地个人数据（`Unmapped/`、`wikihub-exported.json`、`wikihub-orchestrator-config.json` 等）。
 - 所有来源共享 `/tmp/wikihub-pending.json` 作为 agent 待审队列。
-- 去重键格式为 `{source}_{id}`，例如 `weread_<bookId>`、`wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`。
+- 去重键格式为 `{source}_{id}`，例如 `wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`。
 - 后续 agent 不得创建 `Tech_wiki/` 以外的任何 wiki 目录。
 - 工具 skill（`*-fetcher`、`transcribe-audio`）不依赖 WikiHub，可单独在其他工作流中使用。
 

@@ -137,7 +137,7 @@ def get_pending_items(
         if not item_key:
             continue
         # wikihub-exported.json keys match item_key exactly
-        # (xhs_<note_id> for xiaohongshu, BV... for bilibili).
+        # (xhs_<note_id> for xiaohongshu, bilibili_<bvid> for bilibili).
         if item_key in exported:
             continue
         if item_key in decisions:

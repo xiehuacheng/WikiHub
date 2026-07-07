@@ -34,9 +34,15 @@ project (for example, `pip install bilibili-cli`).
 ## Usage
 
 ```bash
+# 单条视频抓取
 python3 .claude/skills/bilibili-fetcher/scripts/fetch.py \
   --url "https://www.bilibili.com/video/BV1xx411c7mD" \
   --output-dir ./output
+
+# 同步当前登录用户的收藏夹（需要 bilibili-export-config.json 指定启用哪些收藏夹）
+python3 .claude/skills/bilibili-fetcher/scripts/sync-favorites.py \
+  --config bilibili-export-config.json \
+  --output-json /tmp/bili-favorites.json
 ```
 
 Or with a short link:
