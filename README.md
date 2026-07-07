@@ -6,22 +6,41 @@
 
 ## 核心设计
 
-- **自然语言触发**：用户对 agent 说“导出微信读书”“导出这期播客”，agent 调用对应 skill 执行导出。
+- **单一主控**：`wikihub-orchestrator` 是 WikiHub 唯一的主控 skill，负责整体编排。
+- **通用工具 skill**：`wechat-fetcher`、`podcast-fetcher`、`bilibili-fetcher`、`xiaohongshu-fetcher`、`weread-fetcher`、`cubox-fetcher`、`transcribe-audio` 都是低耦合的通用工具，可被其他工作流复用。
 - **增量导入**：所有导出结果通过 `wikihub-exported.json` 去重，避免重复抓取、下载与转录。
 - **统一管道**：导出后统一执行 `make all`（应用 agent 结果 → 同步标签 → 自动分类 → 生成看板）。
 - **网页看板控制**：`make select` 启动本地选择面板，决定哪些内容值得进入 wiki。
 - **单一 wiki 边界**：所有内容最终只落地到 `Tech_wiki/`；agent 不得创建其他 `*_wiki/` 目录。
 
+## 架构
+
+```
+┌─────────────────────────────────────┐
+│      wikihub-orchestrator           │
+│  （WikiHub 主控：路由、去重、        │
+│   生成 Markdown、状态管理）          │
+└──────────────┬──────────────────────┘
+               │ subprocess
+    ┌──────────┼──────────┬──────────┬──────────┐
+    ▼          ▼          ▼          ▼          ▼
+wechat-   podcast-   bilibili-  xiaohongshu-  weread-
+fetcher   fetcher    fetcher    fetcher       fetcher
+    │          │          │          │
+    ▼          ▼          ▼          ▼
+         transcribe-audio（音频转录）
+```
+
 ## 支持的数据来源
 
-| 来源 | 命令 | 说明 |
+| 来源 | 工具 skill | 说明 |
 |---|---|---|
-| 微信读书 | `make export-weread` | 基于 WeChat Reading Skill Gateway 导出划线与想法 |
-| 微信公众号 | `make export-wechat` / `export-one.py --url` | 抓取公众号文章为 Markdown |
-| 播客 | `make export-podcast` / `export-one.py --url` | 仅支持 Apple Podcasts 链接和标准 RSS feed |
-| B 站 | `make export-bilibili` / `export-one.py --url` | 导出收藏夹视频或单个视频并转录 |
-| 小红书 | `make export-xiaohongshu` / `export-one.py --url` | 导出收藏笔记或单条笔记 |
-| Cubox | `make export-cubox` / `make dispatch-cubox` | 批量导出文章，或作为统一入口分发链接 |
+| 微信公众号 | `wechat-fetcher` | 抓取公众号文章为 Markdown |
+| 播客 | `podcast-fetcher` | 仅支持 Apple Podcasts 链接和标准 RSS feed |
+| B 站 | `bilibili-fetcher` | 下载视频音频 |
+| 小红书 | `xiaohongshu-fetcher` | 抓取笔记正文与图片 |
+| 微信读书 | `weread-fetcher` | 导出划线与想法 |
+| Cubox | `cubox-fetcher` | 获取收藏卡片列表 |
 
 ## 快速开始
 
@@ -44,57 +63,31 @@ make help
 
 ### 推荐：Cubox 作为统一入口
 
-把所有待导入的链接（公众号、Apple 播客、B 站、小红书）丢进 Cubox，然后一键分发：
+把所有待导入的链接（公众号、Apple 播客、B 站、小红书）丢进 Cubox，然后一键编排：
 
 ```bash
 # 1. 在 Cubox 中创建 "WikiHub_已归档" 文件夹
 # 2. 预览待处理卡片
-make dispatch-cubox DISPATCH_ARGS="--dry-run"
+make orchestrate-dry-run
 
-# 3. 实际分发、导出、归档
-make dispatch-cubox
+# 3. 实际执行抓取、转录、生成 Markdown、归档
+make orchestrate
 ```
 
-Dispatcher 会自动按域名分发到对应 skill，导出成功后把卡片移动到 `WikiHub_已归档`。
+`wikihub-orchestrator` 会自动：
+1. 从 Cubox 拉取未归档卡片。
+2. 按域名路由到对应工具 skill。
+3. 下载音频/视频后调用 `transcribe-audio` 转录。
+4. 生成统一格式的 WikiHub Markdown 到 `Unmapped/`。
+5. 更新 `wikihub-exported.json` 和 `/tmp/wikihub-pending.json`。
+6. 把 Cubox 卡片移动到 `WikiHub_已归档`。
 
-### 传统：逐个来源导出
-
-#### 初始化
-
-```bash
-make detect-weread-folders   # 生成 weread-export-config.json
-make detect-wechat-folders   # 生成 wechat-export-config.json 和 wechat-articles.urls
-make detect-podcast-folders  # 生成 podcast-export-config.json 和 podcast-feeds.urls
-```
-
-编辑生成的 `*-export-config.json`，将 `enabled` 设为 `true`；对于公众号和播客，在对应的 `.urls` 文件中每行放入一个链接。
-
-#### 批量导出
+### 从输入队列导入
 
 ```bash
-make export-weread --yes
-make export-wechat --yes
-make export-podcast --yes
-```
-
-#### 单链接导出
-
-```bash
-# 微信公众号
-python3 .claude/skills/wikihub-export-wechat/scripts/export-one.py \
-  --url "https://mp.weixin.qq.com/s/xxxxx"
-
-# Apple 播客
-python3 .claude/skills/wikihub-export-podcast/scripts/export-one.py \
-  --url "https://podcasts.apple.com/cn/podcast/xxx/id123456?i=789"
-
-# B 站
-python3 .claude/skills/wikihub-export-bilibili/scripts/export-one.py \
-  --url "https://www.bilibili.com/video/BVxxxxx"
-
-# 小红书
-python3 .claude/skills/wikihub-export-xiaohongshu/scripts/export-one.py \
-  --url "https://www.xiaohongshu.com/explore/xxxxx"
+# queue.json 格式：[{"url": "...", "title": "..."}, ...]
+python3 .claude/skills/wikihub-orchestrator/scripts/orchestrate.py \
+  --queue /path/to/queue.json
 ```
 
 ### 导出后的统一处理
@@ -120,6 +113,36 @@ make select
 
 默认端口 `7321`，冲突时自动递增。浏览器打开提示的地址即可筛选、标记、导出内容。
 
+## 单独使用工具 Skill
+
+所有 fetcher 都可以脱离 WikiHub 单独使用：
+
+```bash
+# 微信公众号
+python3 .claude/skills/wechat-fetcher/scripts/fetch.py \
+  --url "https://mp.weixin.qq.com/s/xxxxx" \
+  --output-dir ./output
+
+# Apple 播客
+python3 .claude/skills/podcast-fetcher/scripts/fetch.py \
+  --url "https://podcasts.apple.com/cn/podcast/xxx/id123456?i=789" \
+  --output-dir ./output
+
+# B 站
+python3 .claude/skills/bilibili-fetcher/scripts/fetch.py \
+  --url "https://www.bilibili.com/video/BVxxxxx" \
+  --output-dir ./output
+
+# 小红书
+python3 .claude/skills/xiaohongshu-fetcher/scripts/fetch.py \
+  --url "https://www.xiaohongshu.com/explore/xxxxx" \
+  --output-dir ./output
+
+# 音频转录
+python3 .claude/skills/transcribe-audio/scripts/transcribe.py \
+  --input ./output/xxx.m4a --language auto
+```
+
 ## 环境变量
 
 复制 `.env.example` 为 `.env` 并填写：
@@ -142,24 +165,29 @@ make select
 ├── .env.example                      # 环境变量模板
 ├── .gitignore                        # 排除个人数据
 ├── README.md                         # 本文件
+├── wikihub-orchestrator-config.json  # 主控配置
 └── .claude/skills/
-    ├── wikihub-export/               # 统一管道脚本
-    ├── wikihub-export-bilibili/      # B 站导出
-    ├── wikihub-export-cubox/         # Cubox 导出
-    ├── wikihub-export-podcast/       # 播客导出
-    ├── wikihub-export-wechat/        # 微信公众号导出
-    ├── wikihub-export-weread/        # 微信读书导出
-    ├── wikihub-export-xiaohongshu/   # 小红书导出
-    └── wikihub-import-select/        # 网页看板与选择面板
+    ├── wikihub-orchestrator/         # WikiHub 主控
+    ├── wikihub-import-select/        # 网页看板与选择面板
+    ├── cubox-fetcher/                # Cubox 卡片获取
+    ├── wechat-fetcher/               # 微信公众号文章
+    ├── podcast-fetcher/              # Apple Podcasts / RSS
+    ├── bilibili-fetcher/             # B 站视频
+    ├── xiaohongshu-fetcher/          # 小红书笔记
+    ├── weread-fetcher/               # 微信读书笔记
+    └── transcribe-audio/             # 音频转录
 ```
+
+旧有的 `wikihub-export-*` 单一来源 skill 已迁移并删除，统一由 `wikihub-orchestrator` 调用通用工具 skill 完成导入。
 
 ## 注意事项
 
 - 本仓库是一个**可复用的工作流模板**，不内含任何个人 wiki 内容、导出配置、URL 列表或 `.env` 文件；这些都被 `.gitignore` 排除。
-- 在公开仓库中使用前，请确认你已删除或忽略了本地个人数据（`Unmapped/`、`*-export-config.json`、`*.urls`、`wikihub-exported.json` 等）。
+- 在公开仓库中使用前，请确认你已删除或忽略了本地个人数据（`Unmapped/`、`wikihub-exported.json`、`wikihub-orchestrator-config.json` 等）。
 - 所有来源共享 `/tmp/wikihub-pending.json` 作为 agent 待审队列。
-- 去重键格式为 `{source}_{id}`，例如 `weread_<bookId>`、`wechat_<article_id>`、`podcast_<episode_id>`。
+- 去重键格式为 `{source}_{id}`，例如 `weread_<bookId>`、`wechat_<article_id>`、`podcast_<episode_id>`、`bilibili_<bvid>`、`xhs_<note_id>`。
 - 后续 agent 不得创建 `Tech_wiki/` 以外的任何 wiki 目录。
+- 工具 skill（`*-fetcher`、`transcribe-audio`）不依赖 WikiHub，可单独在其他工作流中使用。
 
 ## 许可证
 

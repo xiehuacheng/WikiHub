@@ -1,8 +1,0 @@
-# 本 skill 的 Python 脚本主要使用标准库。
-# 转录功能依赖以下 Python 包（已安装在 .venv 中）：
-dashscope>=1.20.0
-oss2>=2.18.0
-
-# 外部 CLI 工具：
-#   - bilibili-cli / bili
-#   - ffmpeg

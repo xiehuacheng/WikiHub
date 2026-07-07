@@ -16,10 +16,9 @@
 ```
 用户自然语言指令
     ↓
-调用 .claude/skills/wikihub-export-*/ 下对应 skill
+调用 .claude/skills/wikihub-orchestrator/ 编排导入流程
     ↓
-make detect-*-folders      # 初始化/更新 *-export-config.json
-make export-* [--yes]      # 导出内容，生成 markdown 与 /tmp/wikihub-pending.json
+make orchestrate           # 从 Cubox/队列获取条目，路由到工具 skill 导入
     ↓
 make all                   # apply-agent-results → apply-tags → relocate → dashboard
 ```
@@ -73,10 +72,12 @@ WikiHub/
 │   ├── 01-Wiki/                  # 概念卡片
 │   ├── 02-Areas/                 # 领域聚合
 │   └── assets/                   # 附件
-├── .claude/skills/wikihub-export/          # 统一管道脚本
-└── .claude/skills/wikihub-export-*/        # 各来源 skill
+├── .claude/skills/wikihub-orchestrator/    # WikiHub 主控编排 skill
+├── .claude/skills/*-fetcher/               # 通用内容抓取工具 skill
+└── .claude/skills/transcribe-audio/        # 音频转录工具 skill
 ```
 
 ## 变更记录
 
+- 2026-07-07：新增 `wikihub-orchestrator` 主控 skill，统一从 Cubox/队列路由到通用工具 skill 导入；统一管道脚本迁移至 orchestrator；删除旧 `wikihub-export-*` 单一来源 skill。
 - 2026-07-06：新增本指南，明确 WikiHub 为单一 Tech_wiki 入口，禁止自动创建其他 wiki 目录。

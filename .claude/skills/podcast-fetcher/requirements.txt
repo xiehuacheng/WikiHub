@@ -1,0 +1,2 @@
+# podcast-fetcher only uses the Python standard library.
+# No third-party packages are required.

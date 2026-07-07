@@ -1,0 +1,2 @@
+# bilibili-fetcher relies on standard library Python modules only.
+# The external `bilibili-cli` tool must be installed separately; see SKILL.md.

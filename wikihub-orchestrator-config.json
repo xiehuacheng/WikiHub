@@ -1,0 +1,11 @@
+{
+  "archive_folder": "WikiHub_已归档",
+  "target_wiki": "",
+  "sources": {
+    "wechat": {"enabled": true},
+    "podcast": {"enabled": true},
+    "bilibili": {"enabled": true},
+    "xiaohongshu": {"enabled": true},
+    "weread": {"enabled": false}
+  }
+}

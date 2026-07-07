@@ -1,7 +1,0 @@
-# 小红书收藏夹导出 Skill 依赖
-#
-# 当前实现完全基于 xiaohongshu-cli（xhs read / xhs favorites），
-# 不发起 HTTP 请求，不下载图片/视频到本地，因此无额外 Python 依赖。
-#
-# 系统依赖：
-#   - xiaohongshu-cli（uv tool install xiaohongshu-cli）
