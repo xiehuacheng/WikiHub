@@ -118,11 +118,14 @@ make select
 
 ## 注意事项
 
-- 本仓库**不包含**你的 wiki 内容、导出配置、URL 列表或 `.env` 文件，这些都被 `.gitignore` 排除。
+- 本仓库是一个**可复用的工作流模板**，不内含任何个人 wiki 内容、导出配置、URL 列表或 `.env` 文件；这些都被 `.gitignore` 排除。
+- 在公开仓库中使用前，请确认你已删除或忽略了本地个人数据（`Unmapped/`、`*-export-config.json`、`*.urls`、`wikihub-exported.json` 等）。
 - 所有来源共享 `/tmp/wikihub-pending.json` 作为 agent 待审队列。
 - 去重键格式为 `{source}_{id}`，例如 `weread_<bookId>`、`wechat_<article_id>`、`podcast_<episode_id>`。
 - 后续 agent 不得创建 `Tech_wiki/` 以外的任何 wiki 目录。
 
 ## 许可证
 
-本仓库为个人私有工作流，未指定开源许可证。
+[MIT License](LICENSE)
+
+你可以自由使用、修改和分发本工作流，只需保留原始版权声明。本仓库按“原样”提供，不包含任何担保。
